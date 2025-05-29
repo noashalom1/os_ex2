@@ -1,0 +1,66 @@
+# Code Coverage Report – Part 1: Atom Warehouse (part1)
+
+Author: [Your Full Name]  
+Date: [Insert Date]
+
+Project Components:
+- atom_warehouse.cpp (TCP Server)
+- atom_supplier.cpp (TCP Client)
+
+────────────────────────────────────────────
+✔ Coverage Summary (Manual Functional Testing)
+────────────────────────────────────────────
+
+Tested Functionalities:
+-----------------------
+✓ TCP server starts and listens on a specified port  
+✓ Accepts TCP client connections  
+✓ Receives "ADD CARBON <number>" commands and updates inventory  
+✓ Receives "ADD OXYGEN <number>" commands and updates inventory  
+✓ Receives "ADD HYDROGEN <number>" commands and updates inventory  
+✓ Sends valid commands from client (atom_supplier) to the server  
+✓ Server prints atom inventory after each valid command  
+✓ Detects invalid atom types (e.g., "ADD HELIUM 10") and prints error  
+✓ Detects malformed number values (e.g., "ADD OXYGEN xyz") and prints error  
+✓ Handles very large numbers gracefully  
+✓ Handles client disconnection without crashing
+
+Untested / Not Covered:
+------------------------
+✗ Simultaneous multi-client requests (concurrency not tested)  
+✗ Graceful shutdown of the server (e.g., Ctrl+C cleanup)  
+✗ Explicit limits for atom quantities (overflow edge cases not fully validated)  
+✗ Stress testing with hundreds of clients (scalability)
+
+────────────────────────────────────────────
+🧪 Example Test Session:
+────────────────────────────────────────────
+Client Input:
+  ADD CARBON 100  
+  ADD HYDROGEN 50  
+  ADD OXYGEN 30  
+  ADD HELIUM 10  
+  ADD OXYGEN xy
+  ADD CARBON 1000000000000000000            
+  ADD CARBON 10000000000000000000000
+
+Server Output:
+  CARBON: 100, OXYGEN: 0, HYDROGEN: 0  
+  CARBON: 100, OXYGEN: 0, HYDROGEN: 50  
+  CARBON: 100, OXYGEN: 30, HYDROGEN: 50  
+  Unknown atom type! - HELIUM is not included.
+  Invalid command!   - xy is not a number.
+  CARBON: 100, OXYGEN: 30, HYDROGEN: 1000000000000000100
+  Invalid command!   - more than 10^18.
+
+────────────────────────────────────────────
+🧾 Notes:
+────────────────────────────────────────────
+- All tests were conducted manually using two terminal sessions.  
+- End-to-end communication between client and server was successfully verified.  
+- All expected command types from Stage 1 were tested with valid and invalid inputs.
+
+Conclusion:
+-----------
+✔ The server and client are functioning as expected for all required Stage 1 features.  
+✗ Future improvements include stress testing, input limits, and clean shutdown handling.

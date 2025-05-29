@@ -1,0 +1,68 @@
+Code Coverage Report – Part 2: Molecule Supplier & Requester
+
+Assumption:
+-----------
+This implementation supports exactly four molecule types:
+- WATER              → composed of 2 HYDROGEN and 1 OXYGEN atoms
+- CARBON DIOXIDE     → composed of 1 CARBON and 2 OXYGEN atoms
+- ALCOHOL            → composed of 2 CARBON, 6 HYDROGEN, and 1 OXYGEN atoms
+- GLUCOSE            → composed of 6 CARBON, 12 HYDROGEN, and 6 OXYGEN atoms
+
+Tested Functionality:
+---------------------
+✓ ADD atoms via TCP:
+    - Example: "ADD OXYGEN 10"
+    - Result: OXYGEN count increases and inventory is printed
+
+✓ DELIVER molecules via UDP:
+    - Example: "DELIVER ALCOHOL 1"
+    - Result: Atom inventory is reduced correctly and confirmation is returned
+
+✓ Multi-word molecule support:
+    - Example: "DELIVER CARBON DIOXIDE 2"
+    - Result: Correctly matched recipe and updated inventory
+
+✓ Invalid molecule handling:
+    - Example: "DELIVER PIZZA 2"
+    - Result: Returns "ERROR: Unknown molecule 'PIZZA'"
+
+✓ Insufficient atom check:
+    - Example: Requesting more molecules than available atoms
+    - Result: Returns precise error including which atom is missing and how many
+
+✓ Inventory display:
+    - Atom counts printed to server console after each change
+
+✓ Error messages printed to server stderr as well as sent to client
+
+Example Run:
+------------
+Atom_supplier:
+    ADD CARBON 100
+    ADD OXYGEN 10
+    ADD HYDROGEN 100
+
+Client:
+    DELIVER ALCOHOL 1
+    Server response: OK: Delivered 1 ALCOHOL molecules
+    DELIVER CARBON DIOXIDE 2
+    Server response: OK: Delivered 2 CARBON DIOXIDE molecules
+    DELIVER GLUCOSE 5
+    Server response: ERROR: Not enough atoms – missing 25 OXYGEN
+    DELIVER PIZZA 2
+    Server response: ERROR: Unknown molecule 'PIZZA'
+
+Server Output:
+    CARBON: 100, OXYGEN: 0, HYDROGEN: 0
+    CARBON: 100, OXYGEN: 10, HYDROGEN: 0
+    CARBON: 100, OXYGEN: 10, HYDROGEN: 100
+    CARBON: 98, OXYGEN: 9, HYDROGEN: 94
+    CARBON: 96, OXYGEN: 5, HYDROGEN: 94
+    ERROR: Not enough atoms – missing 25 OXYGEN
+    ERROR: Unknown molecule 'PIZZA'
+
+Conclusion:
+-----------
+The code correctly handles all valid input formats for the four supported molecules.
+It provides clear error messages, prevents invalid actions, and maintains accurate inventory management.
+No extra molecule formats or flexible syntax is supported, as per the design decision.
