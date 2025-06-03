@@ -63,14 +63,14 @@ void add_atoms(const string& atom_type, const string& amount_string) {
     }
 }
 
-unsigned long long set_timeout(const string& timeout) {
+int set_timeout(const string& timeout) {
     if (!all_of(timeout.begin(), timeout.end(), ::isdigit)) {
         cerr << "Invalid command: amount must be a positive number!" << endl;
         return 0;
     }
 
     try {
-        unsigned long long time = stoull(timeout); 
+        int time = stoull(timeout); 
         return time;
     } catch (const exception& e) {
         cerr << "Error converting number" << endl;
@@ -167,7 +167,8 @@ int compute_drink_count(const string& drink_name) {
 }
 
 int main(int argc, char* argv[]) {
-    int tcp_port = -1, udp_port = -1, timeout = -1;
+    int tcp_port = -1, udp_port = -1;
+    int timeout = -1;
     int opt;
     while ((opt = getopt(argc, argv, "T:U:o:c:h:t:")) != -1) {
         switch (opt) {
@@ -244,6 +245,11 @@ int main(int argc, char* argv[]) {
                 FD_SET(newfd, &master);
                 if (newfd > fdmax) fdmax = newfd;
                 clients.push_back(newfd);
+                if (timeout > 0) {
+                timeout_val.tv_sec = timeout;
+                timeout_val.tv_usec = 0;
+                timeout_ptr = &timeout_val;
+                }
             } else if (i == udp_sock) {
                 char buf[1024] = {0};
                 sockaddr_in client_addr{};
@@ -253,6 +259,11 @@ int main(int argc, char* argv[]) {
                     string response = handle_udp_command(string(buf));
                     if (response.rfind("ERROR", 0) == 0) cerr << response << endl;
                     sendto(udp_sock, response.c_str(), response.size(), 0, (sockaddr*)&client_addr, len);
+                    if (timeout > 0) {
+                    timeout_val.tv_sec = timeout;
+                    timeout_val.tv_usec = 0;
+                    timeout_ptr = &timeout_val;
+                    }
                 }
             } else if (i == STDIN_FILENO) {
                 string line;
@@ -271,6 +282,11 @@ int main(int argc, char* argv[]) {
                 } else {
                     cout << "Unknown drink command: " << line << endl;
                 }
+                if (timeout > 0) {
+                timeout_val.tv_sec = timeout;
+                timeout_val.tv_usec = 0;
+                timeout_ptr = &timeout_val;
+                }
             } else {
                 char buf[1024] = {0};
                 int n = recv(i, buf, sizeof(buf) - 1, 0);
@@ -279,6 +295,11 @@ int main(int argc, char* argv[]) {
                     FD_CLR(i, &master);
                 } else {
                     handle_tcp_command(string(buf));
+                    if (timeout > 0) {
+                    timeout_val.tv_sec = timeout;
+                    timeout_val.tv_usec = 0;
+                    timeout_ptr = &timeout_val;
+                    }
                 }
             }
         }
