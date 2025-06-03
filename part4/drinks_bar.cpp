@@ -9,14 +9,16 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/select.h>
+#include <climits>
+#include <cstdlib>
 #define MAX_VALUE 1000000000000000000
 using namespace std;
+
 
 map<string, unsigned long long> atom_inventory = {
     {"CARBON", 0}, {"OXYGEN", 0}, {"HYDROGEN", 0}
 };
 
-// הגדרת צריכת אטומים לכל מולקולה
 map<string, map<string, int>> molecule_recipes = {
     {"WATER", {{"HYDROGEN", 2}, {"OXYGEN", 1}}},
     {"CARBON DIOXIDE", {{"CARBON", 1}, {"OXYGEN", 2}}},
@@ -24,12 +26,23 @@ map<string, map<string, int>> molecule_recipes = {
     {"GLUCOSE", {{"CARBON", 6}, {"HYDROGEN", 12}, {"OXYGEN", 6}}}
 };
 
+map<string, vector<string>> drink_recipes = {
+    {"SOFT DRINK", {"WATER", "CARBON DIOXIDE", "GLUCOSE"}},
+    {"VODKA", {"WATER", "ALCOHOL", "GLUCOSE"}},
+    {"CHAMPAGNE", {"WATER", "CARBON DIOXIDE", "ALCOHOL"}}
+};
+
+map<string, unsigned long long> molecule_inventory;
+
 void print_inventory() {
     cout << "CARBON: " << atom_inventory["CARBON"]
          << ", OXYGEN: " << atom_inventory["OXYGEN"]
          << ", HYDROGEN: " << atom_inventory["HYDROGEN"] << endl;
 }
 
+void add_molecules_to_inventory(const string& molecule_name, unsigned long long count) {
+    molecule_inventory[molecule_name] += count;
+}
 void add_atoms(const string& atom_type, const string& amount_string) {
     // בדיקה שהקלט מכיל רק ספרות
     if (!all_of(amount_string.begin(), amount_string.end(), ::isdigit)) {
@@ -47,6 +60,21 @@ void add_atoms(const string& atom_type, const string& amount_string) {
         atom_inventory[atom_type] += amount;
     } catch (const exception& e) {
         cerr << "Error converting number" << endl;
+    }
+}
+
+unsigned long long set_timeout(const string& timeout) {
+    if (!all_of(timeout.begin(), timeout.end(), ::isdigit)) {
+        cerr << "Invalid command: amount must be a positive number!" << endl;
+        return 0;
+    }
+
+    try {
+        unsigned long long time = stoull(timeout); 
+        return time;
+    } catch (const exception& e) {
+        cerr << "Error converting number" << endl;
+        return 0;
     }
 }
 
@@ -72,26 +100,18 @@ string handle_udp_command(const string& command) {
     iss >> action;
 
     if (action != "DELIVER") {
-        cerr << "Invalid UDP command!" << endl;
         return "ERROR: Invalid command";
     }
 
-    // אסוף את כל המילים שנשארו
     vector<string> tokens;
     string token;
-    while (iss >> token) {
-        tokens.push_back(token);
-    }
+    while (iss >> token) tokens.push_back(token);
 
-    if (tokens.size() < 2) {
-        cerr << "Invalid UDP command format!" << endl;
-        return "ERROR: Invalid command format";
-    }
+    if (tokens.size() < 2) return "ERROR: Invalid command format";
 
-    // הניסיון לפענח את המספר האחרון
+  
     string count_str = tokens.back();
 
-// בדיקה שהמחרוזת מכילה רק ספרות
     if (!all_of(count_str.begin(), count_str.end(), ::isdigit)) {
         return "ERROR: Not a positive number";
     }
@@ -103,104 +123,116 @@ string handle_udp_command(const string& command) {
         return "ERROR: Conversion failed";
     }
 
-
-    // המילים שלפני המספר הן שם המולקולה
     string molecule_name;
     for (size_t i = 0; i < tokens.size() - 1; ++i) {
         if (!molecule_name.empty()) molecule_name += " ";
         molecule_name += tokens[i];
     }
 
-    // תמיכה בפקודות כמו DELIVER OXYGEN WATER 2 → atom = OXYGEN, molecule = WATER
-    string atom_name = "";
-    string real_molecule = molecule_name;
-    if (tokens.size() > 3) {
-        atom_name = tokens[0];
-        real_molecule = molecule_name.substr(atom_name.size() + 1); // הסרת האטום מהמולקולה
+    if (molecule_recipes.find(molecule_name) == molecule_recipes.end()) {
+        return "ERROR: Unknown molecule '" + molecule_name + "'";
     }
 
-    // בדיקה שהמולקולה קיימת
-    if (molecule_recipes.find(real_molecule) == molecule_recipes.end()) {
-        return "ERROR: Unknown molecule '" + real_molecule + "'";
-    }
-
-    const auto& recipe = molecule_recipes[real_molecule];
-
-    // לחשב אילו אטומים דרושים
+    const auto& recipe = molecule_recipes[molecule_name];
     map<string, unsigned long long> needed;
     for (const auto& [atom, per_mol] : recipe) {
         needed[atom] += per_mol * count;
     }
 
-    // אם גם צוין atom בתחילת הפקודה – נוסיף אותו לרשימת ההפחתות
-    if (!atom_name.empty()) {
-        string upper_atom = atom_name;
-        transform(upper_atom.begin(), upper_atom.end(), upper_atom.begin(), ::toupper);
-        if (atom_inventory.find(upper_atom) == atom_inventory.end()) {
-            return "ERROR: Invalid atom '" + upper_atom + "'";
-        }
-        needed[upper_atom] += count;
-    }
-
-    // לבדוק שיש מספיק אטומים
     for (const auto& [atom, need_count] : needed) {
         if (atom_inventory[atom] < need_count) {
-            unsigned long long missing = need_count - atom_inventory[atom];
-            return "ERROR: Not enough atoms – missing " + to_string(missing) + " " + atom;
+            return "ERROR: Not enough atoms – missing " + to_string(need_count - atom_inventory[atom]) + " " + atom;
         }
     }
 
-    // ניכוי בפועל
     for (const auto& [atom, need_count] : needed) {
         atom_inventory[atom] -= need_count;
     }
 
+    cout << "DELIVERED: " << count << " " << molecule_name << " molecules" << endl;
+    add_molecules_to_inventory(molecule_name, count);
     print_inventory();
     return "OK: Delivered " + to_string(count) + " " + molecule_name + " molecules";
 }
 
+int compute_drink_count(const string& drink_name) {
+    if (drink_recipes.find(drink_name) == drink_recipes.end()) return 0;
+
+    int min_count = INT_MAX;
+    for (const string& mol : drink_recipes[drink_name]) {
+        if (molecule_inventory.find(mol) == molecule_inventory.end()) return 0;
+        min_count = min(min_count, static_cast<int>(molecule_inventory[mol]));
+    }
+    return min_count;
+}
 
 int main(int argc, char* argv[]) {
-    if (argc != 3) {
-        cerr << "Usage: " << argv[0] << " <TCP_PORT> <UDP_PORT>" << endl;
+    int tcp_port = -1, udp_port = -1, timeout = -1;
+    int opt;
+    while ((opt = getopt(argc, argv, "T:U:o:c:h:t:")) != -1) {
+        switch (opt) {
+            case 'T': tcp_port = atoi(optarg); break;
+            case 'U': udp_port = atoi(optarg); break;
+            case 'o': add_atoms("OXYGEN", string(optarg)); break;
+            case 'c': add_atoms("CARBON", string(optarg)); break;
+            case 'h': add_atoms("HYDROGEN", string(optarg)); break;
+            case 't': timeout = set_timeout(string(optarg)); break;
+            default:
+                cerr << "Usage: ./drinks_bar -T <tcp_port> -U <udp_port> [-o num] [-c num] [-h num] [-t timeout]" << endl;
+                return 1;
+        }
+    }
+
+    if (tcp_port == -1 || udp_port == -1) {
+        cerr << "ERROR: TCP and UDP ports are required (use -T and -U)" << endl;
         return 1;
     }
 
-    int tcp_port = atoi(argv[1]);
-    int udp_port = atoi(argv[2]);
-
-    // יצירת סוקט TCP
     int tcp_sock = socket(AF_INET, SOCK_STREAM, 0);
-    sockaddr_in tcp_addr {};
+    sockaddr_in tcp_addr{};
     tcp_addr.sin_family = AF_INET;
     tcp_addr.sin_addr.s_addr = INADDR_ANY;
     tcp_addr.sin_port = htons(tcp_port);
     bind(tcp_sock, (sockaddr*)&tcp_addr, sizeof(tcp_addr));
     listen(tcp_sock, 5);
 
-    // יצירת סוקט UDP
     int udp_sock = socket(AF_INET, SOCK_DGRAM, 0);
-    sockaddr_in udp_addr {};
+    sockaddr_in udp_addr{};
     udp_addr.sin_family = AF_INET;
     udp_addr.sin_addr.s_addr = INADDR_ANY;
     udp_addr.sin_port = htons(udp_port);
     bind(udp_sock, (sockaddr*)&udp_addr, sizeof(udp_addr));
 
-    cout << "Server listening on TCP port " << tcp_port
+    cout << "bar_drinks running on TCP port " << tcp_port
          << " and UDP port " << udp_port << "..." << endl;
+    
+    print_inventory();
 
     fd_set master, read_fds;
     FD_ZERO(&master);
     FD_SET(tcp_sock, &master);
     FD_SET(udp_sock, &master);
-    int fdmax = max(tcp_sock, udp_sock);
+    FD_SET(STDIN_FILENO, &master);
+    int fdmax = max({tcp_sock, udp_sock, STDIN_FILENO});
+
+    timeval* timeout_ptr = nullptr;
+    timeval timeout_val{};
+    if (timeout > 0) {
+        timeout_val.tv_sec = timeout;
+        timeout_val.tv_usec = 0;
+        timeout_ptr = &timeout_val;
+    }
 
     vector<int> clients;
 
     while (true) {
         read_fds = master;
-        if (select(fdmax + 1, &read_fds, nullptr, nullptr, nullptr) < 0) {
+        int activity = select(fdmax + 1, &read_fds, nullptr, nullptr, timeout_ptr);
+        if (activity < 0) {
             perror("select");
+            break;
+        } else if (activity == 0) {
+            cout << "Timeout reached with no activity. Server exiting." << endl;
             break;
         }
 
@@ -214,24 +246,31 @@ int main(int argc, char* argv[]) {
                 clients.push_back(newfd);
             } else if (i == udp_sock) {
                 char buf[1024] = {0};
-                sockaddr_in client_addr {};
+                sockaddr_in client_addr{};
                 socklen_t len = sizeof(client_addr);
-                int n = recvfrom(udp_sock, buf, sizeof(buf) - 1, 0,
-                                 (sockaddr*)&client_addr, &len);
+                int n = recvfrom(udp_sock, buf, sizeof(buf) - 1, 0, (sockaddr*)&client_addr, &len);
                 if (n > 0) {
                     string response = handle_udp_command(string(buf));
-
-                    // הדפסת השגיאה לשרת אם יש שגיאה
-                    if (response.rfind("ERROR", 0) == 0) {
-                        cerr << response << endl;
-                    } else {
-                        cout << response << endl;  // ✅ פלט מוצלח מוצג לשרת
-                    }
-
-                    sendto(udp_sock, response.c_str(), response.size(), 0,
-                        (sockaddr*)&client_addr, len);
+                    if (response.rfind("ERROR", 0) == 0) cerr << response << endl;
+                    sendto(udp_sock, response.c_str(), response.size(), 0, (sockaddr*)&client_addr, len);
                 }
-
+            } else if (i == STDIN_FILENO) {
+                string line;
+                getline(cin, line);
+                transform(line.begin(), line.end(), line.begin(), ::toupper);
+                istringstream iss(line);
+                string command, drink;
+                iss >> command;
+                getline(iss, drink);
+                drink.erase(0, drink.find_first_not_of(" "));
+                transform(command.begin(), command.end(), command.begin(), ::toupper);
+                transform(drink.begin(), drink.end(), drink.begin(), ::toupper);
+                if (command == "GEN" && drink_recipes.find(drink) != drink_recipes.end()) {
+                    int count = compute_drink_count(drink);
+                    cout << "Can prepare " << count << " " << drink << " drinks" << endl;
+                } else {
+                    cout << "Unknown drink command: " << line << endl;
+                }
             } else {
                 char buf[1024] = {0};
                 int n = recv(i, buf, sizeof(buf) - 1, 0);

@@ -9,7 +9,7 @@
 #include <sys/select.h>
 #include <sstream>
 #include <algorithm>
-
+#define MAX_VALUE 1000000000000000000
 using namespace std;
 
 map<string, unsigned long long> atom_inventory = {
@@ -22,13 +22,33 @@ void print_inventory() {
          << ", HYDROGEN: " << atom_inventory["HYDROGEN"] << endl;
 }
 
+
+void add_atoms(const string& atom_type, const string& amount_string) {
+    // בדיקה שהקלט מכיל רק ספרות
+    if (!all_of(amount_string.begin(), amount_string.end(), ::isdigit)) {
+        cerr << "Invalid command: amount must be a positive number!" << endl;
+        return;
+    }
+
+    try {
+        unsigned long long amount = stoull(amount_string);  // משתמשים ב-ULL ולא UINT
+        if (atom_inventory[atom_type] + amount > MAX_VALUE) {
+            cerr << "Invalid command: not enough place for the atoms!" << endl;
+            return;
+        }
+
+        atom_inventory[atom_type] += amount;
+    } catch (const exception& e) {
+        cerr << "Error converting number" << endl;
+    }
+}
+
 void handle_command(const string& command) {
     istringstream iss(command);
-    string action, atom_type;
-    unsigned long long amount;
-
-    iss >> action >> atom_type >> amount;
-
+    string action, atom_type, amount_string;
+  
+    iss >> action >> atom_type >> amount_string;
+    
     // אם הפקודה לא חוקית
     if (action != "ADD" || iss.fail()) {
         cerr << "Invalid command!" << endl;
@@ -39,7 +59,7 @@ void handle_command(const string& command) {
     transform(atom_type.begin(), atom_type.end(), atom_type.begin(), ::toupper);
 
     if (atom_inventory.find(atom_type) != atom_inventory.end()) {
-        atom_inventory[atom_type] += amount;
+        add_atoms(atom_type, amount_string);
         print_inventory();
     } else {
         cerr << "Unknown atom type!" << endl;

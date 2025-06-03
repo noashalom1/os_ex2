@@ -10,7 +10,7 @@
 #include <sys/socket.h>
 #include <sys/select.h>
 #include <climits>
-
+#define MAX_VALUE 1000000000000000000
 using namespace std;
 
 map<string, unsigned long long> atom_inventory = {
@@ -38,16 +38,35 @@ void print_inventory() {
 
 map<string, unsigned long long> molecule_inventory;
 
+void add_atoms(const string& atom_type, const string& amount_string) {
+    // בדיקה שהקלט מכיל רק ספרות
+    if (!all_of(amount_string.begin(), amount_string.end(), ::isdigit)) {
+        cerr << "Invalid command: amount must be a positive number!" << endl;
+        return;
+    }
+
+    try {
+        unsigned long long amount = stoull(amount_string);  // משתמשים ב-ULL ולא UINT
+        if (atom_inventory[atom_type] + amount > MAX_VALUE) {
+            cerr << "Invalid command: not enough place for the atoms!" << endl;
+            return;
+        }
+
+        atom_inventory[atom_type] += amount;
+    } catch (const exception& e) {
+        cerr << "Error converting number" << endl;
+    }
+}
+
 void add_molecules_to_inventory(const string& molecule_name, unsigned long long count) {
     molecule_inventory[molecule_name] += count;
 }
 
 void handle_tcp_command(const string& command) {
     istringstream iss(command);
-    string action, atom;
-    unsigned long long amount;
-
-    iss >> action >> atom >> amount;
+    string action, atom, amount_string;
+    
+    iss >> action >> atom >> amount_string;
     transform(atom.begin(), atom.end(), atom.begin(), ::toupper);
 
     if (action != "ADD" || atom_inventory.find(atom) == atom_inventory.end() || iss.fail()) {
@@ -55,7 +74,7 @@ void handle_tcp_command(const string& command) {
         return;
     }
 
-    atom_inventory[atom] += amount;
+    add_atoms(atom, amount_string);
     print_inventory();
 }
 
@@ -74,11 +93,17 @@ string handle_udp_command(const string& command) {
 
     if (tokens.size() < 2) return "ERROR: Invalid command format";
 
+    string count_str = tokens.back();
+
+    if (!all_of(count_str.begin(), count_str.end(), ::isdigit)) {
+        return "ERROR: Not a positive number";
+    }
+
     unsigned long long count;
     try {
-        count = stoull(tokens.back());
-    } catch (...) {
-        return "ERROR: Invalid molecule count";
+        count = stoull(count_str);
+    } catch (const exception& e) {
+        return "ERROR: Conversion failed";
     }
 
     string molecule_name;
