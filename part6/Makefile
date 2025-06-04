@@ -24,4 +24,5 @@ $(REQUESTER): $(REQUESTER_SRC)
 	$(CXX) $(CXXFLAGS) -o $(REQUESTER) $(REQUESTER_SRC)
 
 clean:
-	rm -f $(SERVER) $(SUPPLIER) $(REQUESTER)
+	rm -f $(SERVER) $(SUPPLIER) $(REQUESTER) *.txt *.sock
+
