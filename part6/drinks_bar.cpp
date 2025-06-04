@@ -16,6 +16,8 @@ using namespace std;
 #include <sys/un.h>
 #define UNIX_STREAM_PATH "/tmp/drinks_bar_stream.sock"
 #define UNIX_DGRAM_PATH "/tmp/drinks_bar_dgram.sock"
+bool history_path = false;
+const char* path = "default_data.txt";
 
 typedef struct f{
     unsigned long long carbon;
@@ -53,15 +55,44 @@ void print_inventory() {
 void add_molecules_to_inventory(const string& molecule_name, unsigned long long count) {
     molecule_inventory[molecule_name] += count;
 }
-void add_atoms(const string& atom_type, const string& amount_string, bool history_path, const char* path) {
-    // בדיקה שהקלט מכיל רק ספרות
+
+void read_from_file(){
+    file_storage fs;
+    FILE* f = fopen(path, "rb");
+    if (f != nullptr) {
+        fread(&fs, sizeof(fs), 1, f);
+        fclose(f);
+    } else {
+        perror("Error reading from file");
+    }
+
+    if(atom_inventory["CARBON"] != fs.carbon || atom_inventory["HYDROGEN"] != fs.hydrogen || atom_inventory["OXYGEN"] != fs.oxygen ){
+        atom_inventory["CARBON"] = fs.carbon;
+        atom_inventory["HYDROGEN"] = fs.hydrogen;
+        atom_inventory["OXYGEN"] = fs.oxygen;
+        cout << "Update from file: ";
+        print_inventory();
+    }
+}
+
+void update_file(file_storage fs){
+    FILE* f = fopen(path, "wb");
+    if (f != nullptr) {
+        fwrite(&fs, sizeof(fs), 1, f);
+        fclose(f);
+    } else {
+        perror("Error opening file for writing");
+    }
+}
+
+void add_atoms(const string& atom_type, const string& amount_string) {
     if (!all_of(amount_string.begin(), amount_string.end(), ::isdigit)) {
         cerr << "Invalid command: amount must be a positive number!" << endl;
         return;
     }
 
     try {
-        unsigned long long amount = stoull(amount_string);  // משתמשים ב-ULL ולא UINT
+        unsigned long long amount = stoull(amount_string);  
         if (atom_inventory[atom_type] + amount > MAX_VALUE) {
             cerr << "Invalid command: not enough place for the atoms!" << endl;
             return;
@@ -77,15 +108,7 @@ void add_atoms(const string& atom_type, const string& amount_string, bool histor
     fs.hydrogen = atom_inventory["HYDROGEN"];
     fs.oxygen = atom_inventory["OXYGEN"];
 
-    if (history_path) {
-    FILE* f = fopen(path, "wb");
-    if (f != nullptr) {
-        fwrite(&fs, sizeof(fs), 1, f);
-        fclose(f);
-    } else {
-        perror("Error opening file for writing");
-    }
-}
+    update_file(fs);
 }
 
 int set_timeout(const string& timeout) {
@@ -132,7 +155,8 @@ int create_unix_dgram_socket() {
     return sock;
 }
 
-void handle_tcp_command(const string& command, bool history_path, const char* path) {
+void handle_tcp_command(const string& command) {
+    read_from_file();
     istringstream iss(command);
     string action, atom, amount_string;
 
@@ -144,11 +168,12 @@ void handle_tcp_command(const string& command, bool history_path, const char* pa
         return;
     }
 
-    add_atoms(atom, amount_string, history_path, path);
+    add_atoms(atom, amount_string);
     print_inventory();
 }
 
 string handle_udp_command(const string& command) {
+    read_from_file();
     istringstream iss(command);
     string action;
     iss >> action;
@@ -198,15 +223,22 @@ string handle_udp_command(const string& command) {
             return "ERROR: Not enough atoms – missing " + to_string(need_count - atom_inventory[atom]) + " " + atom;
         }
     }
-
+    
     for (const auto& [atom, need_count] : needed) {
         atom_inventory[atom] -= need_count;
     }
+
+    file_storage fs;
+    fs.carbon = atom_inventory["CARBON"];
+    fs.hydrogen = atom_inventory["HYDROGEN"];
+    fs.oxygen = atom_inventory["OXYGEN"];
+    update_file(fs);
 
     cout << "DELIVERED: " << count << " " << molecule_name << " molecules" << endl;
     add_molecules_to_inventory(molecule_name, count);
     print_inventory();
     return "OK: Delivered " + to_string(count) + " " + molecule_name + " molecules";
+
 }
 
 int compute_drink_count(const string& drink_name) {
@@ -225,11 +257,10 @@ int main(int argc, char* argv[]) {
     int timeout = -1;
     int opt;
     string stream_path, dgram_path;
-    const char* path = "data.txt";  
     const char *oxygen;
     const char *carbon;
     const char *hydrogen;
-    bool history_path = false, o = false, c = false, h = false;
+    bool o = false, c = false, h = false;
 
     while ((opt = getopt(argc, argv, "T:U:o:c:h:t:s:d:f:")) != -1) {
         switch (opt) {
@@ -249,33 +280,22 @@ int main(int argc, char* argv[]) {
     }
     
     if(history_path){
-        
-    FILE* f = fopen(path, "rb");
-    if (f == NULL) {
-        cout << "File doesn't exist, no data to read" << endl;
-    } else {
-        file_storage fs;
-        if (fread(&fs, sizeof(fs), 1, f) == 1) {
-            atom_inventory["CARBON"] = fs.carbon;
-            atom_inventory["OXYGEN"] = fs.oxygen;
-            atom_inventory["HYDROGEN"] = fs.hydrogen;
-        } else {
-            cerr << "Failed to read file data (possibly empty or corrupt)" << endl;
-        }
-        fclose(f);
-    }
-
+        read_from_file();
     }else{
         if(c){
-            add_atoms("CARBON", carbon, history_path, path);
+            add_atoms("CARBON", carbon);
         }
         if(o){
-            add_atoms("OXYGEN", oxygen, history_path, path);
+            add_atoms("OXYGEN", oxygen);
         }
         if(h){
-            add_atoms("HYDROGEN", hydrogen, history_path, path);
+            add_atoms("HYDROGEN", hydrogen);
         }
-
+        file_storage fs;
+        fs.carbon = atom_inventory["CARBON"];
+        fs.hydrogen = atom_inventory["HYDROGEN"];
+        fs.oxygen = atom_inventory["OXYGEN"];
+        update_file(fs);
     }
 
     if (tcp_port == -1 || udp_port == -1) {
@@ -460,7 +480,7 @@ int main(int argc, char* argv[]) {
                     close(i);
                     FD_CLR(i, &master);
                 } else {
-                    handle_tcp_command(string(buf), history_path, path);
+                    handle_tcp_command(string(buf));
                     if (timeout > 0) {
                     timeout_val.tv_sec = timeout;
                     timeout_val.tv_usec = 0;

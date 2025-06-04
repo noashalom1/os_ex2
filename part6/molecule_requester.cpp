@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <cstring>
+#include <netdb.h>
 
 using namespace std;
 
@@ -47,19 +48,31 @@ int main(int argc, char* argv[]) {
     socklen_t addr_len;
 
     if (!uds_path.empty()) {
-        sock = socket(AF_UNIX, SOCK_DGRAM, 0);
-        if (sock < 0) {
-            perror("socket (UDS)");
+        addrinfo hints{}, *res;
+        hints.ai_family = AF_INET;         // IPv4
+        hints.ai_socktype = SOCK_DGRAM;   // UDP
+
+        string port_str = to_string(port);
+        int status = getaddrinfo(hostname.c_str(), port_str.c_str(), &hints, &res);
+        if (status != 0) {
+            cerr << "getaddrinfo error: " << gai_strerror(status) << endl;
             return 1;
         }
 
-        sockaddr_un* addr = (sockaddr_un*)&server_addr;
-        addr->sun_family = AF_UNIX;
-        strncpy(addr->sun_path, uds_path.c_str(), sizeof(addr->sun_path) - 1);
-        addr->sun_path[sizeof(addr->sun_path) - 1] = '\0'; // הגנה
-        addr_len = sizeof(sockaddr_un);
+        sock = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+        if (sock < 0) {
+            perror("socket (INET)");
+            freeaddrinfo(res);
+            return 1;
+        }
 
-        cout << "Connected to UDS datagram at " << uds_path << endl;
+        // שמירת כתובת השרת למשתנה הכללי
+        memcpy(&server_addr, res->ai_addr, res->ai_addrlen);
+        addr_len = res->ai_addrlen;
+
+        cout << "Connected to UDP server at " << hostname << ":" << port << endl;
+        freeaddrinfo(res);
+
 
     } else {
         sock = socket(AF_INET, SOCK_DGRAM, 0);

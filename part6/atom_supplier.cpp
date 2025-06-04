@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <cstring>
+#include <netdb.h>  
 
 using namespace std;
 
@@ -71,18 +72,25 @@ int main(int argc, char* argv[]) {
             return 1;
         }
 
-        sockaddr_in server_addr{};
-        server_addr.sin_family = AF_INET;
-        server_addr.sin_port = htons(port);
-        if (inet_pton(AF_INET, hostname.c_str(), &server_addr.sin_addr) <= 0) {
-            cerr << "Invalid address/hostname" << endl;
+        addrinfo hints{}, *res;
+        hints.ai_family = AF_INET;         // IPv4
+        hints.ai_socktype = SOCK_STREAM;   // TCP
+
+        string port_str = to_string(port);
+        int status = getaddrinfo(hostname.c_str(), port_str.c_str(), &hints, &res);
+        if (status != 0) {
+            cerr << "getaddrinfo error: " << gai_strerror(status) << endl;
             return 1;
         }
 
-        if (connect(sock, (sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+        if (connect(sock, res->ai_addr, res->ai_addrlen) < 0) {
             perror("connect (INET) failed");
+            freeaddrinfo(res);
             return 1;
         }
+
+        freeaddrinfo(res);  // משחרר את מבני המידע
+
 
         cout << "Connected to TCP server at " << hostname << ":" << port << endl;
     }

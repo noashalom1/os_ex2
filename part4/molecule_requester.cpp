@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <cstring>
+#include <netdb.h>
 
 using namespace std;
 
@@ -39,11 +40,14 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    sockaddr_in server_addr {};
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(port);
-    if (inet_pton(AF_INET, hostname.c_str(), &server_addr.sin_addr) <= 0) {
-        cerr << "Invalid address/hostname" << endl;
+    addrinfo hints{}, *res;
+    hints.ai_family = AF_INET;       // IPv4
+    hints.ai_socktype = SOCK_DGRAM;  // UDP
+
+    string port_str = to_string(port);
+    int status = getaddrinfo(hostname.c_str(), port_str.c_str(), &hints, &res);
+    if (status != 0) {
+        cerr << "getaddrinfo error: " << gai_strerror(status) << endl;
         return 1;
     }
 
@@ -54,12 +58,12 @@ int main(int argc, char* argv[]) {
     while (getline(cin, line)) {
         line += "\n";
         sendto(sock, line.c_str(), line.length(), 0,
-               (sockaddr*)&server_addr, sizeof(server_addr));
+        res->ai_addr, res->ai_addrlen);
 
+        sockaddr_storage response_addr{};
+        socklen_t len = sizeof(response_addr);
         char buffer[1024] = {0};
-        socklen_t len = sizeof(server_addr);
-        int n = recvfrom(sock, buffer, sizeof(buffer) - 1, 0,
-                         (sockaddr*)&server_addr, &len);
+        int n = recvfrom(sock, buffer, sizeof(buffer) - 1, 0, (sockaddr*)&response_addr, &len);
 
         if (n > 0) {
             buffer[n] = '\0';
@@ -68,7 +72,7 @@ int main(int argc, char* argv[]) {
             cerr << "Failed to receive response from server" << endl;
         }
     }
-
+    freeaddrinfo(res);
     close(sock);
     return 0;
 }

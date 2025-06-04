@@ -1,8 +1,5 @@
 # Code Coverage Report – Part 1: Atom Warehouse (part1)
 
-Author: [Your Full Name]  
-Date: [Insert Date]
-
 Project Components:
 - atom_warehouse.cpp (TCP Server)
 - atom_supplier.cpp (TCP Client)

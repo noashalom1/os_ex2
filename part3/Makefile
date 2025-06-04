@@ -1,15 +1,21 @@
-# Makefile for Stage 3 - Bar Drinks Server
 
 CXX = g++
 CXXFLAGS = -Wall -Wextra -std=c++17
 
-TARGET = drinks_bar
-SRC = drinks_bar.cpp
+TARGET_SERVER = drinks_bar
+TARGET_CLIENT = molecule_requester
+TARGET_SUPPLIER = atom_supplier
 
-all: $(TARGET)
+all: $(TARGET_SERVER) $(TARGET_CLIENT) $(TARGET_SUPPLIER)
 
-$(TARGET): $(SRC)
-	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC)
+$(TARGET_SERVER): $(TARGET_SERVER).cpp
+	$(CXX) $(CXXFLAGS) -o $(TARGET_SERVER) $(TARGET_SERVER).cpp
+
+$(TARGET_CLIENT): $(TARGET_CLIENT).cpp
+	$(CXX) $(CXXFLAGS) -o $(TARGET_CLIENT) $(TARGET_CLIENT).cpp
+
+$(TARGET_SUPPLIER): $(TARGET_SUPPLIER).cpp
+	$(CXX) $(CXXFLAGS) -o $(TARGET_SUPPLIER) $(TARGET_SUPPLIER).cpp
 
 clean:
-	rm -f $(TARGET)
+	rm -f $(TARGET_SERVER) $(TARGET_CLIENT) $(TARGET_SUPPLIER)

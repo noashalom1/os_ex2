@@ -52,18 +52,25 @@ void add_atoms(const string& atom_type, const string& amount_string) {
 
 void handle_tcp_command(const string& command) {
     istringstream iss(command);
-    string action, atom, amount_string;
-
-    iss >> action >> atom >> amount_string;
-    transform(atom.begin(), atom.end(), atom.begin(), ::toupper);
-
-    if (action != "ADD" || atom_inventory.find(atom) == atom_inventory.end() || iss.fail()) {
-        cerr << "Invalid TCP command!" << endl;
+    string action, atom_type, amount_string;
+  
+    iss >> action >> atom_type >> amount_string;
+    
+    // אם הפקודה לא חוקית
+    if (action != "ADD" || iss.fail()) {
+        cerr << "Invalid command!" << endl;
         return;
     }
 
-    add_atoms(atom, amount_string);
-    print_inventory();
+    // ממירים את סוג האטום לאותיות גדולות (כדי שיהיה תואם ל-CARBON, OXYGEN וכו')
+    transform(atom_type.begin(), atom_type.end(), atom_type.begin(), ::toupper);
+
+    if (atom_inventory.find(atom_type) != atom_inventory.end()) {
+        add_atoms(atom_type, amount_string);
+        print_inventory();
+    } else {
+        cerr << "Unknown atom type!" << endl;
+    }
 }
 
 string handle_udp_command(const string& command) {
