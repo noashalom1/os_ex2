@@ -149,13 +149,24 @@ string handle_udp_command(const string& command) {
         needed[upper_atom] += count;
     }
 
-    // לבדוק שיש מספיק אטומים
+    // לבדוק אילו אטומים חסרים
+    vector<string> missing_atoms;
     for (const auto& [atom, need_count] : needed) {
         if (atom_inventory[atom] < need_count) {
             unsigned long long missing = need_count - atom_inventory[atom];
-            return "ERROR: Not enough atoms – missing " + to_string(missing) + " " + atom;
+            missing_atoms.push_back(to_string(missing) + " " + atom);
         }
     }
+
+    if (!missing_atoms.empty()) {
+        string error = "ERROR: Not enough atoms – missing ";
+        for (size_t i = 0; i < missing_atoms.size(); ++i) {
+            if (i > 0) error += ", ";
+            error += missing_atoms[i];
+        }
+        return error;
+    }
+
 
     // ניכוי בפועל
     for (const auto& [atom, need_count] : needed) {
