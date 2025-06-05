@@ -19,18 +19,22 @@ using namespace std;
 bool history_path = false;
 const char* path = "default_data.txt";
 
+/**
+ * @struct file_storage
+ * @brief Represents storage format for atom quantities in a binary file.
+ */
 typedef struct f{
     unsigned long long carbon;
     unsigned long long oxygen;
     unsigned long long hydrogen;
-
 } file_storage;
 
-
+// Global atom and molecule inventories
 map<string, unsigned long long> atom_inventory = {
     {"CARBON", 0}, {"OXYGEN", 0}, {"HYDROGEN", 0}
 };
 
+// Predefined molecule compositions
 map<string, map<string, int>> molecule_recipes = {
     {"WATER", {{"HYDROGEN", 2}, {"OXYGEN", 1}}},
     {"CARBON DIOXIDE", {{"CARBON", 1}, {"OXYGEN", 2}}},
@@ -38,6 +42,7 @@ map<string, map<string, int>> molecule_recipes = {
     {"GLUCOSE", {{"CARBON", 6}, {"HYDROGEN", 12}, {"OXYGEN", 6}}}
 };
 
+// Drink recipes built from molecules
 map<string, vector<string>> drink_recipes = {
     {"SOFT DRINK", {"WATER", "CARBON DIOXIDE", "GLUCOSE"}},
     {"VODKA", {"WATER", "ALCOHOL", "GLUCOSE"}},
@@ -46,16 +51,25 @@ map<string, vector<string>> drink_recipes = {
 
 map<string, unsigned long long> molecule_inventory;
 
+/**
+ * @brief Prints the current inventory of atoms.
+ */
 void print_inventory() {
     cout << "CARBON: " << atom_inventory["CARBON"]
          << ", OXYGEN: " << atom_inventory["OXYGEN"]
          << ", HYDROGEN: " << atom_inventory["HYDROGEN"] << endl;
 }
 
+/**
+ * @brief Adds a specified count of molecules to the molecule inventory.
+ */
 void add_molecules_to_inventory(const string& molecule_name, unsigned long long count) {
     molecule_inventory[molecule_name] += count;
 }
 
+/**
+ * @brief Reads the atom inventory from a binary file.
+ */
 void read_from_file(){
     file_storage fs;
     FILE* f = fopen(path, "rb");
@@ -64,8 +78,8 @@ void read_from_file(){
         fclose(f);
     } else {
         perror("Error reading from file");
+        return;
     }
-
     if(atom_inventory["CARBON"] != fs.carbon || atom_inventory["HYDROGEN"] != fs.hydrogen || atom_inventory["OXYGEN"] != fs.oxygen ){
         atom_inventory["CARBON"] = fs.carbon;
         atom_inventory["HYDROGEN"] = fs.hydrogen;
@@ -75,6 +89,11 @@ void read_from_file(){
     }
 }
 
+/**
+ * @brief Updates the binary file with current atom inventory.
+ * 
+ * @param fs The file_storage struct with current atom values.
+ */
 void update_file(file_storage fs){
     FILE* f = fopen(path, "wb");
     if (f != nullptr) {
@@ -85,6 +104,11 @@ void update_file(file_storage fs){
     }
 }
 
+/**
+ * @brief Adds a given amount of atoms to the inventory if valid.
+ * @param atom_type The type of atom to add (CARBON, OXYGEN, HYDROGEN).
+ * @param amount_string The amount as a string (validated and converted).
+ */
 void add_atoms(const string& atom_type, const string& amount_string) {
     if (!all_of(amount_string.begin(), amount_string.end(), ::isdigit)) {
         cerr << "Invalid command: amount must be a positive number!" << endl;
@@ -111,6 +135,11 @@ void add_atoms(const string& atom_type, const string& amount_string) {
     update_file(fs);
 }
 
+/**
+ * @brief Converts timeout string to integer seconds.
+ * @param timeout Timeout as string.
+ * @return Timeout in seconds.
+ */
 int set_timeout(const string& timeout) {
     if (!all_of(timeout.begin(), timeout.end(), ::isdigit)) {
         cerr << "Invalid command: amount must be a positive number!" << endl;
@@ -126,35 +155,59 @@ int set_timeout(const string& timeout) {
     }
 }
 
+/**
+ * @brief Creates and listens on a UNIX domain stream socket.
+ *
+ * Unlinks the existing socket file, creates a new stream socket,
+ * binds it to UNIX_STREAM_PATH, and starts listening.
+ *
+ * @return Socket file descriptor on success, exits on failure.
+ */
 int create_unix_stream_socket() {
-    unlink(UNIX_STREAM_PATH); // לוודא שאין קובץ קודם
-    int sock = socket(AF_UNIX, SOCK_STREAM, 0);
+    unlink(UNIX_STREAM_PATH); // Remove existing socket file
+    int sock = socket(AF_UNIX, SOCK_STREAM, 0); // Create UNIX stream socket
     if (sock < 0) {
         perror("UDS STREAM socket");
         exit(1);
     }
     sockaddr_un addr{};
     addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, UNIX_STREAM_PATH, sizeof(addr.sun_path) - 1);
-    bind(sock, (sockaddr*)&addr, sizeof(addr));
-    listen(sock, 5);
+    strncpy(addr.sun_path, UNIX_STREAM_PATH, sizeof(addr.sun_path) - 1); // Set socket path
+    bind(sock, (sockaddr*)&addr, sizeof(addr)); // Bind socket
+    listen(sock, 5); // Listen for connections
     return sock;
 }
 
+/**
+ * @brief Creates and binds a UNIX domain datagram socket.
+ *
+ * Unlinks the existing datagram socket file, creates a new one,
+ * and binds it to UNIX_DGRAM_PATH.
+ *
+ * @return Socket file descriptor on success, exits on failure.
+ */
 int create_unix_dgram_socket() {
-    unlink(UNIX_DGRAM_PATH);
-    int sock = socket(AF_UNIX, SOCK_DGRAM, 0);
+    unlink(UNIX_DGRAM_PATH);  // Remove existing socket file
+    int sock = socket(AF_UNIX, SOCK_DGRAM, 0); // Create UNIX datagram socket
     if (sock < 0) {
         perror("UDS DGRAM socket");
         exit(1);
     }
     sockaddr_un addr{};
     addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, UNIX_DGRAM_PATH, sizeof(addr.sun_path) - 1);
-    bind(sock, (sockaddr*)&addr, sizeof(addr));
+    strncpy(addr.sun_path, UNIX_DGRAM_PATH, sizeof(addr.sun_path) - 1);  // Set socket path
+    bind(sock, (sockaddr*)&addr, sizeof(addr)); // Bind socket
     return sock;
 }
 
+/**
+ * @brief Processes a TCP command to add atoms.
+ *
+ * Parses a TCP command of the form "ADD <ATOM> <AMOUNT>", 
+ * validates it, updates inventory, and prints the result.
+ *
+ * @param command The TCP command string.
+ */
 void handle_tcp_command(const string& command) {
     read_from_file();
     istringstream iss(command);
@@ -172,6 +225,11 @@ void handle_tcp_command(const string& command) {
     print_inventory();
 }
 
+/**
+ * @brief Handles UDP command to deliver molecules.
+ * @param command The full command string.
+ * @return Response to be sent back to the client.
+ */
 string handle_udp_command(const string& command) {
     read_from_file();
     istringstream iss(command);
@@ -241,6 +299,10 @@ string handle_udp_command(const string& command) {
 
 }
 
+/**
+ * @brief Computes how many drinks of the specified type can be made.
+ * @return The number of drinks that can be prepared.
+ */
 int compute_drink_count(const string& drink_name) {
     if (drink_recipes.find(drink_name) == drink_recipes.end()) return 0;
 

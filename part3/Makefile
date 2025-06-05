@@ -1,21 +1,20 @@
-
+# Makefile for part3
 CXX = g++
 CXXFLAGS = -Wall -Wextra -std=c++17
 
-TARGET_SERVER = drinks_bar
-TARGET_CLIENT = molecule_requester
-TARGET_SUPPLIER = atom_supplier
+# Targets
+TARGETS = atom_supplier drinks_bar molecule_requester
 
-all: $(TARGET_SERVER) $(TARGET_CLIENT) $(TARGET_SUPPLIER)
+all: $(TARGETS)
 
-$(TARGET_SERVER): $(TARGET_SERVER).cpp
-	$(CXX) $(CXXFLAGS) -o $(TARGET_SERVER) $(TARGET_SERVER).cpp
+atom_supplier: atom_supplier.cpp
+	$(CXX) $(CXXFLAGS) -o $@ $<
 
-$(TARGET_CLIENT): $(TARGET_CLIENT).cpp
-	$(CXX) $(CXXFLAGS) -o $(TARGET_CLIENT) $(TARGET_CLIENT).cpp
+drinks_bar: drinks_bar.cpp
+	$(CXX) $(CXXFLAGS) -o $@ $<
 
-$(TARGET_SUPPLIER): $(TARGET_SUPPLIER).cpp
-	$(CXX) $(CXXFLAGS) -o $(TARGET_SUPPLIER) $(TARGET_SUPPLIER).cpp
+molecule_requester: molecule_requester.cpp
+	$(CXX) $(CXXFLAGS) -o $@ $<
 
 clean:
-	rm -f $(TARGET_SERVER) $(TARGET_CLIENT) $(TARGET_SUPPLIER)
+	rm -f $(TARGETS)

@@ -12,11 +12,12 @@
 #define MAX_VALUE 1000000000000000000
 using namespace std;
 
+// Global atom inventory, initialized to 0 for each atom type
 map<string, unsigned long long> atom_inventory = {
     {"CARBON", 0}, {"OXYGEN", 0}, {"HYDROGEN", 0}
 };
 
-// הגדרת צריכת אטומים לכל מולקולה
+// Recipe book for building molecules from atoms
 map<string, map<string, int>> molecule_recipes = {
     {"WATER", {{"HYDROGEN", 2}, {"OXYGEN", 1}}},
     {"CARBON DIOXIDE", {{"CARBON", 1}, {"OXYGEN", 2}}},
@@ -24,21 +25,27 @@ map<string, map<string, int>> molecule_recipes = {
     {"GLUCOSE", {{"CARBON", 6}, {"HYDROGEN", 12}, {"OXYGEN", 6}}}
 };
 
+/** 
+ * Prints the current atom inventory to the console.
+ */
 void print_inventory() {
     cout << "CARBON: " << atom_inventory["CARBON"]
          << ", OXYGEN: " << atom_inventory["OXYGEN"]
          << ", HYDROGEN: " << atom_inventory["HYDROGEN"] << endl;
 }
 
+/**
+ * Adds a specified amount of atoms to the inventory.
+ * Validates the input and ensures inventory won't overflow.
+ */
 void add_atoms(const string& atom_type, const string& amount_string) {
-    // בדיקה שהקלט מכיל רק ספרות
     if (!all_of(amount_string.begin(), amount_string.end(), ::isdigit)) {
         cerr << "Invalid command: amount must be a positive number!" << endl;
         return;
     }
 
     try {
-        unsigned long long amount = stoull(amount_string);  // משתמשים ב-ULL ולא UINT
+        unsigned long long amount = stoull(amount_string);  // Convert string to unsigned long long
         if (atom_inventory[atom_type] + amount > MAX_VALUE) {
             cerr << "Invalid command: not enough place for the atoms!" << endl;
             return;
@@ -50,20 +57,21 @@ void add_atoms(const string& atom_type, const string& amount_string) {
     }
 }
 
+/**
+ * Handles TCP commands from clients (e.g., "ADD OXYGEN 50").
+ */
 void handle_tcp_command(const string& command) {
     istringstream iss(command);
     string action, atom_type, amount_string;
   
     iss >> action >> atom_type >> amount_string;
     
-    // אם הפקודה לא חוקית
     if (action != "ADD" || iss.fail()) {
         cerr << "Invalid command!" << endl;
         return;
     }
 
-    // ממירים את סוג האטום לאותיות גדולות (כדי שיהיה תואם ל-CARBON, OXYGEN וכו')
-    transform(atom_type.begin(), atom_type.end(), atom_type.begin(), ::toupper);
+    transform(atom_type.begin(), atom_type.end(), atom_type.begin(), ::toupper); // Convert atom name to uppercase
 
     if (atom_inventory.find(atom_type) != atom_inventory.end()) {
         add_atoms(atom_type, amount_string);
@@ -73,6 +81,10 @@ void handle_tcp_command(const string& command) {
     }
 }
 
+/**
+ * Handles UDP commands for delivering molecules.
+ * Validates input and updates inventory if enough atoms are available.
+ */
 string handle_udp_command(const string& command) {
     istringstream iss(command);
     string action;
@@ -83,7 +95,6 @@ string handle_udp_command(const string& command) {
         return "ERROR: Invalid command";
     }
 
-    // אסוף את כל המילים שנשארו
     vector<string> tokens;
     string token;
     while (iss >> token) {
@@ -95,10 +106,8 @@ string handle_udp_command(const string& command) {
         return "ERROR: Invalid command format";
     }
 
-    // הניסיון לפענח את המספר האחרון
     string count_str = tokens.back();
 
-// בדיקה שהמחרוזת מכילה רק ספרות
     if (!all_of(count_str.begin(), count_str.end(), ::isdigit)) {
         return "ERROR: Not a positive number";
     }
@@ -110,36 +119,31 @@ string handle_udp_command(const string& command) {
         return "ERROR: Conversion failed";
     }
 
-
-    // המילים שלפני המספר הן שם המולקולה
+    // Reconstruct molecule name (excluding atom if provided)
     string molecule_name;
     for (size_t i = 0; i < tokens.size() - 1; ++i) {
         if (!molecule_name.empty()) molecule_name += " ";
         molecule_name += tokens[i];
     }
 
-    // תמיכה בפקודות כמו DELIVER OXYGEN WATER 2 → atom = OXYGEN, molecule = WATER
     string atom_name = "";
     string real_molecule = molecule_name;
     if (tokens.size() > 3) {
         atom_name = tokens[0];
-        real_molecule = molecule_name.substr(atom_name.size() + 1); // הסרת האטום מהמולקולה
+        real_molecule = molecule_name.substr(atom_name.size() + 1);  // Skip atom name
     }
 
-    // בדיקה שהמולקולה קיימת
     if (molecule_recipes.find(real_molecule) == molecule_recipes.end()) {
         return "ERROR: Unknown molecule '" + real_molecule + "'";
     }
 
     const auto& recipe = molecule_recipes[real_molecule];
 
-    // לחשב אילו אטומים דרושים
     map<string, unsigned long long> needed;
     for (const auto& [atom, per_mol] : recipe) {
         needed[atom] += per_mol * count;
     }
 
-    // אם גם צוין atom בתחילת הפקודה – נוסיף אותו לרשימת ההפחתות
     if (!atom_name.empty()) {
         string upper_atom = atom_name;
         transform(upper_atom.begin(), upper_atom.end(), upper_atom.begin(), ::toupper);
@@ -149,7 +153,7 @@ string handle_udp_command(const string& command) {
         needed[upper_atom] += count;
     }
 
-    // לבדוק אילו אטומים חסרים
+    // Check for missing atoms
     vector<string> missing_atoms;
     for (const auto& [atom, need_count] : needed) {
         if (atom_inventory[atom] < need_count) {
@@ -167,8 +171,7 @@ string handle_udp_command(const string& command) {
         return error;
     }
 
-
-    // ניכוי בפועל
+    // Deduct required atoms
     for (const auto& [atom, need_count] : needed) {
         atom_inventory[atom] -= need_count;
     }
@@ -177,7 +180,10 @@ string handle_udp_command(const string& command) {
     return "OK: Delivered " + to_string(count) + " " + molecule_name + " molecules";
 }
 
-
+/**
+ * Main server loop: listens for TCP and UDP connections,
+ * handles incoming commands from clients.
+ */
 int main(int argc, char* argv[]) {
     if (argc != 3) {
         cerr << "Usage: " << argv[0] << " <TCP_PORT> <UDP_PORT>" << endl;
@@ -187,7 +193,7 @@ int main(int argc, char* argv[]) {
     int tcp_port = atoi(argv[1]);
     int udp_port = atoi(argv[2]);
 
-    // יצירת סוקט TCP
+    // Create TCP socket
     int tcp_sock = socket(AF_INET, SOCK_STREAM, 0);
     sockaddr_in tcp_addr {};
     tcp_addr.sin_family = AF_INET;
@@ -196,7 +202,7 @@ int main(int argc, char* argv[]) {
     bind(tcp_sock, (sockaddr*)&tcp_addr, sizeof(tcp_addr));
     listen(tcp_sock, 5);
 
-    // יצירת סוקט UDP
+    // Create UDP socket
     int udp_sock = socket(AF_INET, SOCK_DGRAM, 0);
     sockaddr_in udp_addr {};
     udp_addr.sin_family = AF_INET;
@@ -226,31 +232,30 @@ int main(int argc, char* argv[]) {
             if (!FD_ISSET(i, &read_fds)) continue;
 
             if (i == tcp_sock) {
+                // New TCP connection
                 int newfd = accept(tcp_sock, nullptr, nullptr);
                 FD_SET(newfd, &master);
                 if (newfd > fdmax) fdmax = newfd;
                 clients.push_back(newfd);
             } else if (i == udp_sock) {
+                // Incoming UDP message
                 char buf[1024] = {0};
                 sockaddr_in client_addr {};
                 socklen_t len = sizeof(client_addr);
-                int n = recvfrom(udp_sock, buf, sizeof(buf) - 1, 0,
-                                 (sockaddr*)&client_addr, &len);
+                int n = recvfrom(udp_sock, buf, sizeof(buf) - 1, 0, (sockaddr*)&client_addr, &len);
                 if (n > 0) {
                     string response = handle_udp_command(string(buf));
-
-                    // הדפסת השגיאה לשרת אם יש שגיאה
                     if (response.rfind("ERROR", 0) == 0) {
                         cerr << response << endl;
                     } else {
-                        cout << response << endl;  // ✅ פלט מוצלח מוצג לשרת
+                        cout << response << endl;  // Success output
                     }
 
-                    sendto(udp_sock, response.c_str(), response.size(), 0,
-                        (sockaddr*)&client_addr, len);
+                    sendto(udp_sock, response.c_str(), response.size(), 0, (sockaddr*)&client_addr, len);
                 }
 
             } else {
+                // Incoming TCP data
                 char buf[1024] = {0};
                 int n = recv(i, buf, sizeof(buf) - 1, 0);
                 if (n <= 0) {

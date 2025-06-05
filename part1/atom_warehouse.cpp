@@ -16,22 +16,29 @@ map<string, unsigned long long> atom_inventory = {
     {"CARBON", 0}, {"OXYGEN", 0}, {"HYDROGEN", 0}
 };
 
+/**
+ * @brief Prints the current inventory of atoms.
+ */
 void print_inventory() {
     cout << "CARBON: " << atom_inventory["CARBON"]
          << ", OXYGEN: " << atom_inventory["OXYGEN"]
          << ", HYDROGEN: " << atom_inventory["HYDROGEN"] << endl;
 }
 
-
+/**
+ * @brief Adds atoms to the inventory if the input is valid.
+ * 
+ * @param atom_type The type of atom to add (e.g., "CARBON").
+ * @param amount_string String representing the number of atoms to add.
+ */
 void add_atoms(const string& atom_type, const string& amount_string) {
-    // בדיקה שהקלט מכיל רק ספרות
     if (!all_of(amount_string.begin(), amount_string.end(), ::isdigit)) {
         cerr << "Invalid command: amount must be a positive number!" << endl;
         return;
     }
 
     try {
-        unsigned long long amount = stoull(amount_string);  // משתמשים ב-ULL ולא UINT
+        unsigned long long amount = stoull(amount_string); 
         if (atom_inventory[atom_type] + amount > MAX_VALUE) {
             cerr << "Invalid command: not enough place for the atoms!" << endl;
             return;
@@ -43,19 +50,22 @@ void add_atoms(const string& atom_type, const string& amount_string) {
     }
 }
 
+/**
+ * @brief Parses and executes a command from the client.
+ * 
+ * @param command The full command string received.
+ */
 void handle_command(const string& command) {
     istringstream iss(command);
     string action, atom_type, amount_string;
   
     iss >> action >> atom_type >> amount_string;
-    
-    // אם הפקודה לא חוקית
+
     if (action != "ADD" || iss.fail()) {
         cerr << "Invalid command!" << endl;
         return;
     }
 
-    // ממירים את סוג האטום לאותיות גדולות (כדי שיהיה תואם ל-CARBON, OXYGEN וכו')
     transform(atom_type.begin(), atom_type.end(), atom_type.begin(), ::toupper);
 
     if (atom_inventory.find(atom_type) != atom_inventory.end()) {
@@ -66,6 +76,13 @@ void handle_command(const string& command) {
     }
 }
 
+/**
+ * @brief Entry point of the TCP server program.
+ * 
+ * @param argc Number of arguments (expects 2).
+ * @param argv Argument values (expects the port number).
+ * @return int Exit status.
+ */
 int main(int argc, char* argv[]) {
     if (argc != 2) {
         cerr << "Usage: " << argv[0] << " <PORT>" << endl;

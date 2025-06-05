@@ -31,13 +31,11 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    // סתירה בין סוגי התחברות
     if ((!hostname.empty() || port != -1) && !uds_path.empty()) {
         cerr << "ERROR: Cannot use both -h/-p and -f options together!" << endl;
         return 1;
     }
 
-    // קלט לא מספיק
     if ((hostname.empty() || port == -1) && uds_path.empty()) {
         cerr << "ERROR: Must specify either hostname/port or UDS path!" << endl;
         return 1;
@@ -66,7 +64,6 @@ int main(int argc, char* argv[]) {
             return 1;
         }
 
-        // שמירת כתובת השרת למשתנה הכללי
         memcpy(&server_addr, res->ai_addr, res->ai_addrlen);
         addr_len = res->ai_addrlen;
 

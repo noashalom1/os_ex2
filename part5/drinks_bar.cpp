@@ -17,12 +17,12 @@ using namespace std;
 #define UNIX_STREAM_PATH "/tmp/drinks_bar_stream.sock"
 #define UNIX_DGRAM_PATH "/tmp/drinks_bar_dgram.sock"
 
-
-
+// Global inventory for atoms (Carbon, Oxygen, Hydrogen)
 map<string, unsigned long long> atom_inventory = {
     {"CARBON", 0}, {"OXYGEN", 0}, {"HYDROGEN", 0}
 };
 
+// Molecule recipes: how many atoms of each type needed per molecule
 map<string, map<string, int>> molecule_recipes = {
     {"WATER", {{"HYDROGEN", 2}, {"OXYGEN", 1}}},
     {"CARBON DIOXIDE", {{"CARBON", 1}, {"OXYGEN", 2}}},
@@ -30,32 +30,44 @@ map<string, map<string, int>> molecule_recipes = {
     {"GLUCOSE", {{"CARBON", 6}, {"HYDROGEN", 12}, {"OXYGEN", 6}}}
 };
 
+// Drink recipes: drinks consist of multiple molecules
 map<string, vector<string>> drink_recipes = {
     {"SOFT DRINK", {"WATER", "CARBON DIOXIDE", "GLUCOSE"}},
     {"VODKA", {"WATER", "ALCOHOL", "GLUCOSE"}},
     {"CHAMPAGNE", {"WATER", "CARBON DIOXIDE", "ALCOHOL"}}
 };
 
-map<string, unsigned long long> molecule_inventory;
+map<string, unsigned long long> molecule_inventory; // Inventory of created molecules
 
+/**
+ * @brief Prints the current atom inventory.
+ */
 void print_inventory() {
     cout << "CARBON: " << atom_inventory["CARBON"]
          << ", OXYGEN: " << atom_inventory["OXYGEN"]
          << ", HYDROGEN: " << atom_inventory["HYDROGEN"] << endl;
 }
 
+/**
+ * @brief Adds a specified count of molecules to the molecule inventory.
+ */
 void add_molecules_to_inventory(const string& molecule_name, unsigned long long count) {
     molecule_inventory[molecule_name] += count;
 }
+
+/**
+ * @brief Adds a given amount of atoms to the inventory if valid.
+ * @param atom_type The type of atom to add (CARBON, OXYGEN, HYDROGEN).
+ * @param amount_string The amount as a string (validated and converted).
+ */
 void add_atoms(const string& atom_type, const string& amount_string) {
-    // בדיקה שהקלט מכיל רק ספרות
     if (!all_of(amount_string.begin(), amount_string.end(), ::isdigit)) {
         cerr << "Invalid command: amount must be a positive number!" << endl;
         return;
     }
 
     try {
-        unsigned long long amount = stoull(amount_string);  // משתמשים ב-ULL ולא UINT
+        unsigned long long amount = stoull(amount_string);  
         if (atom_inventory[atom_type] + amount > MAX_VALUE) {
             cerr << "Invalid command: not enough place for the atoms!" << endl;
             return;
@@ -67,6 +79,11 @@ void add_atoms(const string& atom_type, const string& amount_string) {
     }
 }
 
+/**
+ * @brief Converts timeout string to integer seconds.
+ * @param timeout Timeout as string.
+ * @return Timeout in seconds.
+ */
 int set_timeout(const string& timeout) {
     if (!all_of(timeout.begin(), timeout.end(), ::isdigit)) {
         cerr << "Invalid command: amount must be a positive number!" << endl;
@@ -82,8 +99,12 @@ int set_timeout(const string& timeout) {
     }
 }
 
+/**
+ * @brief Creates and binds a UNIX stream socket.
+ * @return File descriptor of the socket.
+ */
 int create_unix_stream_socket() {
-    unlink(UNIX_STREAM_PATH); // לוודא שאין קובץ קודם
+    unlink(UNIX_STREAM_PATH); 
     int sock = socket(AF_UNIX, SOCK_STREAM, 0);
     if (sock < 0) {
         perror("UDS STREAM socket");
@@ -97,6 +118,10 @@ int create_unix_stream_socket() {
     return sock;
 }
 
+/**
+ * @brief Creates and binds a UNIX datagram socket.
+ * @return File descriptor of the socket.
+ */
 int create_unix_dgram_socket() {
     unlink(UNIX_DGRAM_PATH);
     int sock = socket(AF_UNIX, SOCK_DGRAM, 0);
@@ -111,6 +136,10 @@ int create_unix_dgram_socket() {
     return sock;
 }
 
+/**
+ * @brief Handles TCP command (e.g., "ADD OXYGEN 5").
+ * @param command The full command string.
+ */
 void handle_tcp_command(const string& command) {
     istringstream iss(command);
     string action, atom, amount_string;
@@ -127,6 +156,11 @@ void handle_tcp_command(const string& command) {
     print_inventory();
 }
 
+/**
+ * @brief Handles UDP command to deliver molecules.
+ * @param command The full command string.
+ * @return Response to be sent back to the client.
+ */
 string handle_udp_command(const string& command) {
     istringstream iss(command);
     string action;
@@ -188,6 +222,11 @@ string handle_udp_command(const string& command) {
     return "OK: Delivered " + to_string(count) + " " + molecule_name + " molecules";
 }
 
+/**
+ * @brief Computes how many drinks of a given type can be prepared.
+ * @param drink_name Name of the drink.
+ * @return Maximum number of drinks that can be made.
+ */
 int compute_drink_count(const string& drink_name) {
     if (drink_recipes.find(drink_name) == drink_recipes.end()) return 0;
 
@@ -199,13 +238,16 @@ int compute_drink_count(const string& drink_name) {
     return min_count;
 }
 
+/**
+ * @brief Main entry point of the server. Handles TCP, UDP, UDS, and stdin.
+ */
 int main(int argc, char* argv[]) {
     int tcp_port = -1, udp_port = -1;
     int timeout = -1;
     int opt;
     string stream_path, dgram_path;
 
-    while ((opt = getopt(argc, argv, "T:U:o:c:h:t:s:d")) != -1) {
+    while ((opt = getopt(argc, argv, "T:U:o:c:h:t:s:d")) != -1) { // Parse command-line arguments
         switch (opt) {
             case 'T': tcp_port = atoi(optarg); break;
             case 'U': udp_port = atoi(optarg); break;
@@ -227,12 +269,13 @@ int main(int argc, char* argv[]) {
     }
     
     fd_set master, read_fds;
-    FD_ZERO(&master);
+    FD_ZERO(&master); // Clear fd set
     int uds_stream_sock = -1, uds_dgram_sock = -1;
     int fdmax = STDIN_FILENO;
 
-    if (!stream_path.empty()) {
-        unlink(stream_path.c_str());
+    // Setup UDS stream socket if needed
+    if (!stream_path.empty()) { 
+        unlink(stream_path.c_str()); // Remove previous socket file
         uds_stream_sock = socket(AF_UNIX, SOCK_STREAM, 0);
         sockaddr_un addr{};
         addr.sun_family = AF_UNIX;
@@ -246,6 +289,7 @@ int main(int argc, char* argv[]) {
         cout << "Listening on UDS stream: " << stream_path << endl;
     }
 
+    // Setup UDS datagram socket if needed
     if (!dgram_path.empty()) {
         unlink(dgram_path.c_str());
         uds_dgram_sock = socket(AF_UNIX, SOCK_DGRAM, 0);
@@ -260,7 +304,7 @@ int main(int argc, char* argv[]) {
         cout << "Listening on UDS datagram: " << dgram_path << endl;
     }
 
-
+    // Setup TCP socket
     int tcp_sock = socket(AF_INET, SOCK_STREAM, 0);
     sockaddr_in tcp_addr{};
     tcp_addr.sin_family = AF_INET;
@@ -270,9 +314,9 @@ int main(int argc, char* argv[]) {
     perror("bind TCP");
     return 1;
     }
-
     listen(tcp_sock, 5);
 
+    // Setup UDP socket
     int udp_sock = socket(AF_INET, SOCK_DGRAM, 0);
     sockaddr_in udp_addr{};
     udp_addr.sin_family = AF_INET;
@@ -286,8 +330,9 @@ int main(int argc, char* argv[]) {
     cout << "bar_drinks running on TCP port " << tcp_port
          << " and UDP port " << udp_port << "..." << endl;
     
-    print_inventory();
+    print_inventory(); // Display starting inventory
 
+    // Add all listening sockets to the master set
     FD_SET(tcp_sock, &master);
     FD_SET(udp_sock, &master);
     FD_SET(STDIN_FILENO, &master);
@@ -304,9 +349,9 @@ int main(int argc, char* argv[]) {
         timeout_val.tv_usec = 0;
         timeout_ptr = &timeout_val;
     }
-
     vector<int> clients;
 
+    // === Event Loop ===
     while (true) {
         read_fds = master;
         int activity = select(fdmax + 1, &read_fds, nullptr, nullptr, timeout_ptr);
@@ -413,6 +458,7 @@ int main(int argc, char* argv[]) {
             }
         }
     }
+    // Cleanup
     if (uds_stream_sock != -1) {
     close(uds_stream_sock);
     unlink(stream_path.c_str());

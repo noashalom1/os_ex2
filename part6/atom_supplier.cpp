@@ -15,7 +15,6 @@ int main(int argc, char* argv[]) {
     string uds_path;
     int opt;
 
-    // ניתוח הדגלים -h, -p, -f
     while ((opt = getopt(argc, argv, "h:p:f:")) != -1) {
         switch (opt) {
             case 'h':
@@ -33,13 +32,11 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    // בדיקה לסתירה
     if ((!hostname.empty() || port != -1) && !uds_path.empty()) {
         cerr << "ERROR: Cannot use both hostname/port and UDS path at the same time!" << endl;
         return 1;
     }
 
-    // בדיקה לקלט חסר
     if ((hostname.empty() || port == -1) && uds_path.empty()) {
         cerr << "ERROR: Must specify either hostname/port or UDS path!" << endl;
         return 1;
@@ -47,7 +44,6 @@ int main(int argc, char* argv[]) {
 
     int sock;
     if (!uds_path.empty()) {
-        // התחברות דרך UDS
         sock = socket(AF_UNIX, SOCK_STREAM, 0);
         if (sock < 0) {
             perror("socket (UDS) failed");
@@ -65,7 +61,6 @@ int main(int argc, char* argv[]) {
 
         cout << "Connected to UDS server at " << uds_path << endl;
     } else {
-        // התחברות דרך TCP
         sock = socket(AF_INET, SOCK_STREAM, 0);
         if (sock < 0) {
             perror("socket (INET) failed");
@@ -89,8 +84,7 @@ int main(int argc, char* argv[]) {
             return 1;
         }
 
-        freeaddrinfo(res);  // משחרר את מבני המידע
-
+        freeaddrinfo(res); 
 
         cout << "Connected to TCP server at " << hostname << ":" << port << endl;
     }

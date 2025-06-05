@@ -1,4 +1,4 @@
-# Makefile for part5
+# Makefile for part6
 CXX = g++
 CXXFLAGS = -Wall -Wextra -std=c++17
 

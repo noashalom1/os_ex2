@@ -14,6 +14,7 @@ int main(int argc, char* argv[]) {
     int port = -1;
     int opt;
 
+    // Parse command-line options -h (hostname), -p (port) and -f(UDS socket path)
     while ((opt = getopt(argc, argv, "h:p:f:")) != -1) {
         switch (opt) {
             case 'h':
@@ -31,13 +32,12 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    // סתירה בין סוגי התחברות
+    // Check for missing arguments
     if ((!hostname.empty() || port != -1) && !uds_path.empty()) {
         cerr << "ERROR: Cannot use both -h/-p and -f options together!" << endl;
         return 1;
     }
-
-    // קלט לא מספיק
+    
     if ((hostname.empty() || port == -1) && uds_path.empty()) {
         cerr << "ERROR: Must specify either hostname/port or UDS path!" << endl;
         return 1;
@@ -48,9 +48,9 @@ int main(int argc, char* argv[]) {
     socklen_t addr_len;
 
     if (!uds_path.empty()) {
-        addrinfo hints{}, *res;
-        hints.ai_family = AF_INET;         // IPv4
-        hints.ai_socktype = SOCK_DGRAM;   // UDP
+        addrinfo hints{}, *res; // Resolve server address
+        hints.ai_family = AF_INET; // IPv4
+        hints.ai_socktype = SOCK_DGRAM; // UDP
 
         string port_str = to_string(port);
         int status = getaddrinfo(hostname.c_str(), port_str.c_str(), &hints, &res);
@@ -66,7 +66,6 @@ int main(int argc, char* argv[]) {
             return 1;
         }
 
-        // שמירת כתובת השרת למשתנה הכללי
         memcpy(&server_addr, res->ai_addr, res->ai_addrlen);
         addr_len = res->ai_addrlen;
 

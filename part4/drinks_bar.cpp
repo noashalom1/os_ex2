@@ -14,11 +14,12 @@
 #define MAX_VALUE 1000000000000000000
 using namespace std;
 
-
+// Global inventory for atoms (Carbon, Oxygen, Hydrogen)
 map<string, unsigned long long> atom_inventory = {
     {"CARBON", 0}, {"OXYGEN", 0}, {"HYDROGEN", 0}
 };
 
+// Molecule recipes: how many atoms of each type needed per molecule
 map<string, map<string, int>> molecule_recipes = {
     {"WATER", {{"HYDROGEN", 2}, {"OXYGEN", 1}}},
     {"CARBON DIOXIDE", {{"CARBON", 1}, {"OXYGEN", 2}}},
@@ -26,32 +27,44 @@ map<string, map<string, int>> molecule_recipes = {
     {"GLUCOSE", {{"CARBON", 6}, {"HYDROGEN", 12}, {"OXYGEN", 6}}}
 };
 
+// Drink recipes: drinks consist of multiple molecules
 map<string, vector<string>> drink_recipes = {
     {"SOFT DRINK", {"WATER", "CARBON DIOXIDE", "GLUCOSE"}},
     {"VODKA", {"WATER", "ALCOHOL", "GLUCOSE"}},
     {"CHAMPAGNE", {"WATER", "CARBON DIOXIDE", "ALCOHOL"}}
 };
 
-map<string, unsigned long long> molecule_inventory;
+map<string, unsigned long long> molecule_inventory; // Inventory of created molecules
 
+/**
+ * @brief Prints the current atom inventory.
+ */
 void print_inventory() {
     cout << "CARBON: " << atom_inventory["CARBON"]
          << ", OXYGEN: " << atom_inventory["OXYGEN"]
          << ", HYDROGEN: " << atom_inventory["HYDROGEN"] << endl;
 }
 
+/**
+ * @brief Adds a specified count of molecules to the molecule inventory.
+ */
 void add_molecules_to_inventory(const string& molecule_name, unsigned long long count) {
     molecule_inventory[molecule_name] += count;
 }
+
+/**
+ * @brief Adds a given amount of atoms to the inventory if valid.
+ * @param atom_type The type of atom to add (CARBON, OXYGEN, HYDROGEN).
+ * @param amount_string The amount as a string (validated and converted).
+ */
 void add_atoms(const string& atom_type, const string& amount_string) {
-    // בדיקה שהקלט מכיל רק ספרות
     if (!all_of(amount_string.begin(), amount_string.end(), ::isdigit)) {
         cerr << "Invalid command: amount must be a positive number!" << endl;
         return;
     }
 
     try {
-        unsigned long long amount = stoull(amount_string);  // משתמשים ב-ULL ולא UINT
+        unsigned long long amount = stoull(amount_string); 
         if (atom_inventory[atom_type] + amount > MAX_VALUE) {
             cerr << "Invalid command: not enough place for the atoms!" << endl;
             return;
@@ -63,6 +76,9 @@ void add_atoms(const string& atom_type, const string& amount_string) {
     }
 }
 
+/**
+ * @brief Parses and validates a timeout value from string to integer.
+ */
 int set_timeout(const string& timeout) {
     if (!all_of(timeout.begin(), timeout.end(), ::isdigit)) {
         cerr << "Invalid command: amount must be a positive number!" << endl;
@@ -78,6 +94,9 @@ int set_timeout(const string& timeout) {
     }
 }
 
+/**
+ * @brief Processes a TCP command for adding atoms.
+ */
 void handle_tcp_command(const string& command) {
     istringstream iss(command);
     string action, atom, amount_string;
@@ -94,6 +113,10 @@ void handle_tcp_command(const string& command) {
     print_inventory();
 }
 
+/**
+ * @brief Handles a UDP command for delivering molecules.
+ * @return A status message indicating success or error.
+ */
 string handle_udp_command(const string& command) {
     istringstream iss(command);
     string action;
@@ -155,6 +178,10 @@ string handle_udp_command(const string& command) {
     return "OK: Delivered " + to_string(count) + " " + molecule_name + " molecules";
 }
 
+/**
+ * @brief Computes how many drinks of the specified type can be made.
+ * @return The number of drinks that can be prepared.
+ */
 int compute_drink_count(const string& drink_name) {
     if (drink_recipes.find(drink_name) == drink_recipes.end()) return 0;
 
@@ -166,6 +193,9 @@ int compute_drink_count(const string& drink_name) {
     return min_count;
 }
 
+/**
+ * @brief Main server function: initializes sockets, parses flags, and runs event loop.
+ */
 int main(int argc, char* argv[]) {
     int tcp_port = -1, udp_port = -1;
     int timeout = -1;

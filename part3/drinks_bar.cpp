@@ -10,13 +10,16 @@
 #include <sys/socket.h>
 #include <sys/select.h>
 #include <climits>
+#include <termios.h>
 #define MAX_VALUE 1000000000000000000
 using namespace std;
 
+// Global inventory for atoms (Carbon, Oxygen, Hydrogen)
 map<string, unsigned long long> atom_inventory = {
     {"CARBON", 0}, {"OXYGEN", 0}, {"HYDROGEN", 0}
 };
 
+// Molecule recipes: how many atoms of each type needed per molecule
 map<string, map<string, int>> molecule_recipes = {
     {"WATER", {{"HYDROGEN", 2}, {"OXYGEN", 1}}},
     {"CARBON DIOXIDE", {{"CARBON", 1}, {"OXYGEN", 2}}},
@@ -24,121 +27,145 @@ map<string, map<string, int>> molecule_recipes = {
     {"GLUCOSE", {{"CARBON", 6}, {"HYDROGEN", 12}, {"OXYGEN", 6}}}
 };
 
+// Drink recipes: drinks consist of multiple molecules
 map<string, vector<string>> drink_recipes = {
     {"SOFT DRINK", {"WATER", "CARBON DIOXIDE", "GLUCOSE"}},
     {"VODKA", {"WATER", "ALCOHOL", "GLUCOSE"}},
     {"CHAMPAGNE", {"WATER", "CARBON DIOXIDE", "ALCOHOL"}}
 };
 
+// Inventory of created molecules
+map<string, unsigned long long> molecule_inventory;
+
+/**
+ * @brief Prints the current inventory of atoms.
+ */
 void print_inventory() {
     cout << "CARBON: " << atom_inventory["CARBON"]
          << ", OXYGEN: " << atom_inventory["OXYGEN"]
          << ", HYDROGEN: " << atom_inventory["HYDROGEN"] << endl;
 }
 
-map<string, unsigned long long> molecule_inventory;
-
+/**
+ * @brief Adds a given amount of atoms to the inventory if valid.
+ * @param atom_type The type of atom to add (CARBON, OXYGEN, HYDROGEN).
+ * @param amount_string The amount as a string (validated and converted).
+ */
 void add_atoms(const string& atom_type, const string& amount_string) {
-    // בדיקה שהקלט מכיל רק ספרות
     if (!all_of(amount_string.begin(), amount_string.end(), ::isdigit)) {
         cerr << "Invalid command: amount must be a positive number!" << endl;
         return;
     }
-
     try {
-        unsigned long long amount = stoull(amount_string);  // משתמשים ב-ULL ולא UINT
+        unsigned long long amount = stoull(amount_string);
         if (atom_inventory[atom_type] + amount > MAX_VALUE) {
             cerr << "Invalid command: not enough place for the atoms!" << endl;
             return;
         }
-
         atom_inventory[atom_type] += amount;
-    } catch (const exception& e) {
+    } catch (...) {
         cerr << "Error converting number" << endl;
     }
 }
 
-void add_molecules_to_inventory(const string& molecule_name, unsigned long long count) {
-    molecule_inventory[molecule_name] += count;
-}
-
+/**
+ * @brief Handles a TCP command from the client (currently supports ADD).
+ * @param command The full command line string received.
+ */
 void handle_tcp_command(const string& command) {
     istringstream iss(command);
-    string action, atom, amount_string;
-    
-    iss >> action >> atom >> amount_string;
-    transform(atom.begin(), atom.end(), atom.begin(), ::toupper);
-
-    if (action != "ADD" || atom_inventory.find(atom) == atom_inventory.end() || iss.fail()) {
-        cerr << "Invalid TCP command!" << endl;
+    string action, atom_type, amount_string;
+    iss >> action >> atom_type >> amount_string;
+    transform(atom_type.begin(), atom_type.end(), atom_type.begin(), ::toupper);
+    if (action != "ADD" || atom_inventory.find(atom_type) == atom_inventory.end()) {
+        cerr << "Invalid command!" << endl;
         return;
     }
-
-    add_atoms(atom, amount_string);
+    add_atoms(atom_type, amount_string);
     print_inventory();
 }
 
+/**
+ * @brief Handles a UDP DELIVER command and updates inventories accordingly.
+ * @param command The full UDP command string.
+ * @return A status string indicating success or the specific error.
+ */
 string handle_udp_command(const string& command) {
     istringstream iss(command);
     string action;
     iss >> action;
-
-    if (action != "DELIVER") {
-        return "ERROR: Invalid command";
-    }
+    if (action != "DELIVER") return "ERROR: Invalid command";
 
     vector<string> tokens;
     string token;
     while (iss >> token) tokens.push_back(token);
-
     if (tokens.size() < 2) return "ERROR: Invalid command format";
 
     string count_str = tokens.back();
+    if (!all_of(count_str.begin(), count_str.end(), ::isdigit)) return "ERROR: Not a positive number";
 
-    if (!all_of(count_str.begin(), count_str.end(), ::isdigit)) {
-        return "ERROR: Not a positive number";
-    }
-
-    unsigned long long count;
-    try {
-        count = stoull(count_str);
-    } catch (const exception& e) {
-        return "ERROR: Conversion failed";
-    }
-
+    unsigned long long count = stoull(count_str);
     string molecule_name;
     for (size_t i = 0; i < tokens.size() - 1; ++i) {
         if (!molecule_name.empty()) molecule_name += " ";
         molecule_name += tokens[i];
     }
 
-    if (molecule_recipes.find(molecule_name) == molecule_recipes.end()) {
-        return "ERROR: Unknown molecule '" + molecule_name + "'";
+    string atom_name = "";
+    string real_molecule = molecule_name;
+    if (tokens.size() > 3) {
+        atom_name = tokens[0];
+        real_molecule = molecule_name.substr(atom_name.size() + 1); // Remove atom prefix if exists
     }
 
-    const auto& recipe = molecule_recipes[molecule_name];
+    if (molecule_recipes.find(real_molecule) == molecule_recipes.end()) {
+        return "ERROR: Unknown molecule '" + real_molecule + "'";
+    }
+
+    const auto& recipe = molecule_recipes[real_molecule];
     map<string, unsigned long long> needed;
-    for (const auto& [atom, per_mol] : recipe) {
-        needed[atom] += per_mol * count;
+    for (const auto& [atom, per_mol] : recipe) needed[atom] += per_mol * count;
+
+    if (!atom_name.empty()) {
+        string upper_atom = atom_name;
+        transform(upper_atom.begin(), upper_atom.end(), upper_atom.begin(), ::toupper);
+        if (atom_inventory.find(upper_atom) == atom_inventory.end()) {
+            return "ERROR: Invalid atom '" + upper_atom + "'";
+        }
+        needed[upper_atom] += count;
     }
 
+    // Check if any atoms are missing for the delivery
+    vector<string> missing_atoms;
     for (const auto& [atom, need_count] : needed) {
         if (atom_inventory[atom] < need_count) {
-            return "ERROR: Not enough atoms – missing " + to_string(need_count - atom_inventory[atom]) + " " + atom;
+            unsigned long long missing = need_count - atom_inventory[atom];
+            missing_atoms.push_back(to_string(missing) + " " + atom);
         }
     }
 
-    for (const auto& [atom, need_count] : needed) {
-        atom_inventory[atom] -= need_count;
+    if (!missing_atoms.empty()) {
+        string error = "ERROR: Not enough atoms – missing ";
+        for (size_t i = 0; i < missing_atoms.size(); ++i) {
+            if (i > 0) error += ", ";
+            error += missing_atoms[i];
+        }
+        return error;
     }
 
-    // ✅ הדפסת ההצלחה לשרת
-    cout << "DELIVERED: " << count << " " << molecule_name << " molecules" << endl;
-    add_molecules_to_inventory(molecule_name, count);
+    for (const auto& [atom, need_count] : needed)
+        atom_inventory[atom] -= need_count;
+
+    molecule_inventory[real_molecule] += count;
     print_inventory();
     return "OK: Delivered " + to_string(count) + " " + molecule_name + " molecules";
 }
 
+/**
+ * @brief Computes how many full drinks of a type can be prepared with available molecules.
+ * @param drink_name The name of the drink (e.g., "VODKA").
+ * @return Number of drinks that can be prepared.
+ */
 int compute_drink_count(const string& drink_name) {
     if (drink_recipes.find(drink_name) == drink_recipes.end()) return 0;
 
@@ -150,44 +177,49 @@ int compute_drink_count(const string& drink_name) {
     return min_count;
 }
 
+/**
+ * @brief Main server loop. Listens on TCP and UDP ports and handles incoming commands.
+ */
 int main(int argc, char* argv[]) {
     if (argc != 3) {
         cerr << "Usage: " << argv[0] << " <TCP_PORT> <UDP_PORT>" << endl;
         return 1;
     }
-
     int tcp_port = atoi(argv[1]);
     int udp_port = atoi(argv[2]);
 
+    // Create and bind TCP socket
     int tcp_sock = socket(AF_INET, SOCK_STREAM, 0);
-    sockaddr_in tcp_addr{};
+    sockaddr_in tcp_addr {};
     tcp_addr.sin_family = AF_INET;
     tcp_addr.sin_addr.s_addr = INADDR_ANY;
     tcp_addr.sin_port = htons(tcp_port);
     bind(tcp_sock, (sockaddr*)&tcp_addr, sizeof(tcp_addr));
     listen(tcp_sock, 5);
 
+    // Create and bind UDP socket
     int udp_sock = socket(AF_INET, SOCK_DGRAM, 0);
-    sockaddr_in udp_addr{};
+    sockaddr_in udp_addr {};
     udp_addr.sin_family = AF_INET;
     udp_addr.sin_addr.s_addr = INADDR_ANY;
     udp_addr.sin_port = htons(udp_port);
     bind(udp_sock, (sockaddr*)&udp_addr, sizeof(udp_addr));
 
-    cout << "bar_drinks running on TCP port " << tcp_port
-         << " and UDP port " << udp_port << "..." << endl;
+    cout << "bar_drinks running on TCP port " << tcp_port << " and UDP port " << udp_port << "..." << endl;
 
+    tcflush(STDIN_FILENO, TCIFLUSH); // Clear input buffer before select
     fd_set master, read_fds;
     FD_ZERO(&master);
     FD_SET(tcp_sock, &master);
     FD_SET(udp_sock, &master);
     FD_SET(STDIN_FILENO, &master);
-
     int fdmax = max({tcp_sock, udp_sock, STDIN_FILENO});
+
     vector<int> clients;
 
     while (true) {
         read_fds = master;
+        FD_SET(STDIN_FILENO, &read_fds);
         if (select(fdmax + 1, &read_fds, nullptr, nullptr, nullptr) < 0) {
             perror("select");
             break;
@@ -197,21 +229,30 @@ int main(int argc, char* argv[]) {
             if (!FD_ISSET(i, &read_fds)) continue;
 
             if (i == tcp_sock) {
+                // Handle new TCP connection
                 int newfd = accept(tcp_sock, nullptr, nullptr);
+                if (newfd < 0) {
+                    perror("accept failed");
+                    continue;
+                }
                 FD_SET(newfd, &master);
-                if (newfd > fdmax) fdmax = newfd;
+                fdmax = max({fdmax, newfd}); 
                 clients.push_back(newfd);
+
             } else if (i == udp_sock) {
+                // Handle UDP request
                 char buf[1024] = {0};
-                sockaddr_in client_addr{};
+                sockaddr_in client_addr {};
                 socklen_t len = sizeof(client_addr);
                 int n = recvfrom(udp_sock, buf, sizeof(buf) - 1, 0, (sockaddr*)&client_addr, &len);
                 if (n > 0) {
                     string response = handle_udp_command(string(buf));
-                    if (response.rfind("ERROR", 0) == 0) cerr << response << endl;
+                    cout << response << endl;
                     sendto(udp_sock, response.c_str(), response.size(), 0, (sockaddr*)&client_addr, len);
                 }
+
             } else if (i == STDIN_FILENO) {
+                // Handle local user input from keyboard
                 string line;
                 getline(cin, line);
                 transform(line.begin(), line.end(), line.begin(), ::toupper);
@@ -219,9 +260,7 @@ int main(int argc, char* argv[]) {
                 string command, drink;
                 iss >> command;
                 getline(iss, drink);
-                drink.erase(0, drink.find_first_not_of(" ")); // להסיר רווחים מיותרים
-
-                transform(command.begin(), command.end(), command.begin(), ::toupper);
+                drink.erase(0, drink.find_first_not_of(" "));
                 transform(drink.begin(), drink.end(), drink.begin(), ::toupper);
 
                 if (command == "GEN" && drink_recipes.find(drink) != drink_recipes.end()) {
@@ -232,6 +271,7 @@ int main(int argc, char* argv[]) {
                 }
 
             } else {
+                // Handle incoming TCP message from existing client
                 char buf[1024] = {0};
                 int n = recv(i, buf, sizeof(buf) - 1, 0);
                 if (n <= 0) {
