@@ -9,8 +9,18 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/select.h>
+#include <csignal>  // for the signals 
+#include <cstdlib>  // exit()
 #define MAX_VALUE 1000000000000000000
 using namespace std;
+
+/**
+ * @brief Handles SIGINT (Ctrl+C) signal and exits cleanly.
+ */
+void handle_sigint([[maybe_unused]] int sig) {
+    cout << "\n📤 Caught SIGINT (Ctrl+C). Exiting cleanly...\n";
+    exit(0);  // makes the .gcda 
+}
 
 // Global atom inventory, initialized to 0 for each atom type
 map<string, unsigned long long> atom_inventory = {
@@ -185,6 +195,7 @@ string handle_udp_command(const string& command) {
  * handles incoming commands from clients.
  */
 int main(int argc, char* argv[]) {
+    signal(SIGINT, handle_sigint);  // Catch Ctrl+C
     if (argc != 3) {
         cerr << "Usage: " << argv[0] << " <TCP_PORT> <UDP_PORT>" << endl;
         return 1;

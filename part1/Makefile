@@ -1,4 +1,3 @@
-
 CXX = g++
 CXXFLAGS = -Wall -Wextra -std=c++17
 GCOV_FLAGS = --coverage -fprofile-arcs -ftest-coverage
@@ -53,6 +52,6 @@ gcov:
 
 clean:
 	rm -f *.o *.gcno *.gcda $(TARGET_SERVER) $(TARGET_CLIENT)
-	
+
 clean-all: clean
 	rm -f *.gcov

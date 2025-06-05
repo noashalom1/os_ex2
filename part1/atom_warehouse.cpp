@@ -9,8 +9,19 @@
 #include <sys/select.h>
 #include <sstream>
 #include <algorithm>
+#include <csignal>  // for the signals 
+#include <cstdlib>  // exit()
 #define MAX_VALUE 1000000000000000000
+
 using namespace std;
+
+/**
+ * @brief Handles SIGINT (Ctrl+C) signal and exits cleanly.
+ */
+void handle_sigint([[maybe_unused]] int sig) {
+    cout << "\n📤 Caught SIGINT (Ctrl+C). Exiting cleanly...\n";
+    exit(0);  // Makes the .gcda 
+}
 
 map<string, unsigned long long> atom_inventory = {
     {"CARBON", 0}, {"OXYGEN", 0}, {"HYDROGEN", 0}
@@ -84,6 +95,8 @@ void handle_command(const string& command) {
  * @return int Exit status.
  */
 int main(int argc, char* argv[]) {
+    signal(SIGINT, handle_sigint);  // Catch Ctrl+C
+
     if (argc != 2) {
         cerr << "Usage: " << argv[0] << " <PORT>" << endl;
         return 1;
@@ -148,6 +161,5 @@ int main(int argc, char* argv[]) {
             }
         }
     }
-
     return 0;
 }

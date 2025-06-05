@@ -1,0 +1,975 @@
+        -:    0:Source:drinks_bar.cpp
+        -:    0:Graph:drinks_bar.gcno
+        -:    0:Data:drinks_bar.gcda
+        -:    0:Runs:1
+        -:    1:#include <iostream>
+        -:    2:#include <string>
+        -:    3:#include <map>
+        -:    4:#include <vector>
+        -:    5:#include <sstream>
+        -:    6:#include <algorithm>
+        -:    7:#include <unistd.h>
+        -:    8:#include <cstring>
+        -:    9:#include <netinet/in.h>
+        -:   10:#include <sys/socket.h>
+        -:   11:#include <sys/select.h>
+        -:   12:#include <climits>
+        -:   13:#include <termios.h>
+        -:   14:#include <csignal>  // for the signals 
+        -:   15:#include <cstdlib>  // exit()
+        -:   16:#define MAX_VALUE 1000000000000000000
+        -:   17:using namespace std;
+        -:   18:
+        -:   19:/**
+        -:   20: * @brief Handles SIGINT (Ctrl+C) signal and exits cleanly.
+        -:   21: */
+function _Z13handle_siginti called 1 returned 0% blocks executed 100%
+        1:   22:void handle_sigint([[maybe_unused]] int sig) {
+        1:   23:    cout << "\n📤 Caught SIGINT (Ctrl+C). Exiting cleanly...\n";
+call    0 returned 100%
+        1:   24:    exit(0);  // makes the .gcda 
+        -:   25:}
+        -:   26:
+        -:   27:// Global inventory for atoms (Carbon, Oxygen, Hydrogen)
+        -:   28:map<string, unsigned long long> atom_inventory = {
+        -:   29:    {"CARBON", 0}, {"OXYGEN", 0}, {"HYDROGEN", 0}
+        -:   30:};
+        -:   31:
+        -:   32:// Molecule recipes: how many atoms of each type needed per molecule
+        -:   33:map<string, map<string, int>> molecule_recipes = {
+        -:   34:    {"WATER", {{"HYDROGEN", 2}, {"OXYGEN", 1}}},
+        -:   35:    {"CARBON DIOXIDE", {{"CARBON", 1}, {"OXYGEN", 2}}},
+        -:   36:    {"ALCOHOL", {{"CARBON", 2}, {"HYDROGEN", 6}, {"OXYGEN", 1}}},
+        -:   37:    {"GLUCOSE", {{"CARBON", 6}, {"HYDROGEN", 12}, {"OXYGEN", 6}}}
+        -:   38:};
+        -:   39:
+        -:   40:// Drink recipes: drinks consist of multiple molecules
+        -:   41:map<string, vector<string>> drink_recipes = {
+        -:   42:    {"SOFT DRINK", {"WATER", "CARBON DIOXIDE", "GLUCOSE"}},
+        -:   43:    {"VODKA", {"WATER", "ALCOHOL", "GLUCOSE"}},
+        -:   44:    {"CHAMPAGNE", {"WATER", "CARBON DIOXIDE", "ALCOHOL"}}
+        -:   45:};
+        -:   46:
+        -:   47:// Inventory of created molecules
+        -:   48:map<string, unsigned long long> molecule_inventory;
+        -:   49:
+        -:   50:/**
+        -:   51: * @brief Prints the current inventory of atoms.
+        -:   52: */
+function _Z15print_inventoryv called 10 returned 100% blocks executed 61%
+       10:   53:void print_inventory() {
+       20:   54:    cout << "CARBON: " << atom_inventory["CARBON"]
+call    0 returned 100%
+call    1 returned 100%
+branch  2 taken 100% (fallthrough)
+branch  3 taken 0% (throw)
+call    4 returned 100%
+branch  5 taken 100% (fallthrough)
+branch  6 taken 0% (throw)
+call    7 returned 100%
+branch  8 taken 100% (fallthrough)
+branch  9 taken 0% (throw)
+call   10 never executed
+       30:   55:         << ", OXYGEN: " << atom_inventory["OXYGEN"]
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+call    6 returned 100%
+branch  7 taken 100% (fallthrough)
+branch  8 taken 0% (throw)
+call    9 returned 100%
+branch 10 taken 100% (fallthrough)
+branch 11 taken 0% (throw)
+call   12 returned 100%
+call   13 never executed
+       30:   56:         << ", HYDROGEN: " << atom_inventory["HYDROGEN"] << endl;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+call    6 returned 100%
+branch  7 taken 100% (fallthrough)
+branch  8 taken 0% (throw)
+call    9 returned 100%
+branch 10 taken 100% (fallthrough)
+branch 11 taken 0% (throw)
+call   12 returned 100%
+branch 13 taken 100% (fallthrough)
+branch 14 taken 0% (throw)
+call   15 returned 100%
+call   16 returned 100%
+call   17 never executed
+       10:   57:}
+        -:   58:
+        -:   59:/**
+        -:   60: * @brief Adds a given amount of atoms to the inventory if valid.
+        -:   61: * @param atom_type The type of atom to add (CARBON, OXYGEN, HYDROGEN).
+        -:   62: * @param amount_string The amount as a string (validated and converted).
+        -:   63: */
+function _Z9add_atomsRKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEES6_ called 7 returned 100% blocks executed 83%
+        7:   64:void add_atoms(const string& atom_type, const string& amount_string) {
+        7:   65:    if (!all_of(amount_string.begin(), amount_string.end(), ::isdigit)) {
+call    0 returned 100%
+call    1 returned 100%
+call    2 returned 100%
+branch  3 taken 29% (fallthrough)
+branch  4 taken 71%
+        2:   66:        cerr << "Invalid command: amount must be a positive number!" << endl;
+call    0 returned 100%
+call    1 returned 100%
+        2:   67:        return;
+        -:   68:    }
+        -:   69:    try {
+        5:   70:        unsigned long long amount = stoull(amount_string);
+call    0 returned 100%
+branch  1 taken 80% (fallthrough)
+branch  2 taken 20% (throw)
+        4:   71:        if (atom_inventory[atom_type] + amount > MAX_VALUE) {
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+branch  3 taken 0% (fallthrough)
+branch  4 taken 100%
+    #####:   72:            cerr << "Invalid command: not enough place for the atoms!" << endl;
+call    0 never executed
+branch  1 never executed (fallthrough)
+branch  2 never executed (throw)
+call    3 never executed
+branch  4 never executed (fallthrough)
+branch  5 never executed (throw)
+    #####:   73:            return;
+        -:   74:        }
+        4:   75:        atom_inventory[atom_type] += amount;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+        1:   76:    } catch (...) {
+call    0 returned 100%
+        1:   77:        cerr << "Error converting number" << endl;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+        1:   78:    }
+call    0 returned 100%
+call    1 never executed
+        -:   79:}
+        -:   80:
+        -:   81:/**
+        -:   82: * @brief Handles a TCP command from the client (currently supports ADD).
+        -:   83: * @param command The full command line string received.
+        -:   84: */
+function _Z18handle_tcp_commandRKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE called 10 returned 100% blocks executed 82%
+       10:   85:void handle_tcp_command(const string& command) {
+       10:   86:    istringstream iss(command);
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+       10:   87:    string action, atom_type, amount_string;
+call    0 returned 100%
+call    1 returned 100%
+call    2 returned 100%
+       10:   88:    iss >> action >> atom_type >> amount_string;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+call    6 returned 100%
+branch  7 taken 100% (fallthrough)
+branch  8 taken 0% (throw)
+       10:   89:    transform(atom_type.begin(), atom_type.end(), atom_type.begin(), ::toupper);
+call    0 returned 100%
+call    1 returned 100%
+call    2 returned 100%
+call    3 returned 100%
+       10:   90:    if (action != "ADD" || atom_inventory.find(atom_type) == atom_inventory.end()) {
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+branch  3 taken 80% (fallthrough)
+branch  4 taken 20%
+call    5 returned 100%
+call    6 returned 100%
+branch  7 taken 100% (fallthrough)
+branch  8 taken 0% (throw)
+call    9 returned 100%
+branch 10 taken 12% (fallthrough)
+branch 11 taken 88%
+branch 12 taken 30% (fallthrough)
+branch 13 taken 70%
+        3:   91:        cerr << "Invalid command!" << endl;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+        3:   92:        return;
+        -:   93:    }
+        7:   94:    add_atoms(atom_type, amount_string);
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+        7:   95:    print_inventory();
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+       19:   96:}
+call    0 returned 100%
+branch  1 taken 70% (fallthrough)
+branch  2 taken 30%
+call    3 returned 100%
+branch  4 taken 70% (fallthrough)
+branch  5 taken 30%
+call    6 returned 100%
+branch  7 taken 70% (fallthrough)
+branch  8 taken 30%
+call    9 returned 100%
+branch 10 taken 70% (fallthrough)
+branch 11 taken 30%
+call   12 never executed
+call   13 never executed
+call   14 never executed
+call   15 never executed
+        -:   97:
+        -:   98:/**
+        -:   99: * @brief Handles a UDP DELIVER command and updates inventories accordingly.
+        -:  100: * @param command The full UDP command string.
+        -:  101: * @return A status string indicating success or the specific error.
+        -:  102: */
+function _Z18handle_udp_commandRKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE called 6 returned 100% blocks executed 47%
+        6:  103:string handle_udp_command(const string& command) {
+        6:  104:    istringstream iss(command);
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+        6:  105:    string action;
+call    0 returned 100%
+        6:  106:    iss >> action;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+        8:  107:    if (action != "DELIVER") return "ERROR: Invalid command";
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+branch  3 taken 17% (fallthrough)
+branch  4 taken 83%
+call    5 returned 100%
+branch  6 taken 100% (fallthrough)
+branch  7 taken 0% (throw)
+        -:  108:
+        5:  109:    vector<string> tokens;
+call    0 returned 100%
+        5:  110:    string token;
+call    0 returned 100%
+       16:  111:    while (iss >> token) tokens.push_back(token);
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+call    6 returned 100%
+branch  7 taken 100% (fallthrough)
+branch  8 taken 0% (throw)
+branch  9 taken 69%
+branch 10 taken 31% (fallthrough)
+       5*:  112:    if (tokens.size() < 2) return "ERROR: Invalid command format";
+call    0 returned 100%
+branch  1 taken 0% (fallthrough)
+branch  2 taken 100%
+call    3 never executed
+branch  4 never executed (fallthrough)
+branch  5 never executed (throw)
+        -:  113:
+        5:  114:    string count_str = tokens.back();
+call    0 returned 100%
+call    1 returned 100%
+branch  2 taken 100% (fallthrough)
+branch  3 taken 0% (throw)
+        7:  115:    if (!all_of(count_str.begin(), count_str.end(), ::isdigit)) return "ERROR: Not a positive number";
+call    0 returned 100%
+call    1 returned 100%
+call    2 returned 100%
+branch  3 taken 100% (fallthrough)
+branch  4 taken 0% (throw)
+branch  5 taken 20% (fallthrough)
+branch  6 taken 80%
+call    7 returned 100%
+branch  8 taken 100% (fallthrough)
+branch  9 taken 0% (throw)
+        -:  116:
+        4:  117:    unsigned long long count = stoull(count_str);
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+        4:  118:    string molecule_name;
+call    0 returned 100%
+        9:  119:    for (size_t i = 0; i < tokens.size() - 1; ++i) {
+call    0 returned 100%
+branch  1 taken 56%
+branch  2 taken 44% (fallthrough)
+        5:  120:        if (!molecule_name.empty()) molecule_name += " ";
+call    0 returned 100%
+branch  1 taken 20% (fallthrough)
+branch  2 taken 80%
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+        5:  121:        molecule_name += tokens[i];
+call    0 returned 100%
+call    1 returned 100%
+branch  2 taken 100% (fallthrough)
+branch  3 taken 0% (throw)
+        -:  122:    }
+        -:  123:
+        4:  124:    string atom_name = "";
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+        4:  125:    string real_molecule = molecule_name;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+        4:  126:    if (tokens.size() > 3) {
+call    0 returned 100%
+branch  1 taken 0% (fallthrough)
+branch  2 taken 100%
+    #####:  127:        atom_name = tokens[0];
+call    0 never executed
+call    1 never executed
+branch  2 never executed (fallthrough)
+branch  3 never executed (throw)
+    #####:  128:        real_molecule = molecule_name.substr(atom_name.size() + 1); // Remove atom prefix if exists
+call    0 never executed
+call    1 never executed
+branch  2 never executed (fallthrough)
+branch  3 never executed (throw)
+call    4 never executed
+call    5 never executed
+        -:  129:    }
+        -:  130:
+        4:  131:    if (molecule_recipes.find(real_molecule) == molecule_recipes.end()) {
+call    0 returned 100%
+call    1 returned 100%
+branch  2 taken 100% (fallthrough)
+branch  3 taken 0% (throw)
+call    4 returned 100%
+branch  5 taken 25% (fallthrough)
+branch  6 taken 75%
+        1:  132:        return "ERROR: Unknown molecule '" + real_molecule + "'";
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+call    6 returned 100%
+call    7 never executed
+        -:  133:    }
+        -:  134:
+        3:  135:    const auto& recipe = molecule_recipes[real_molecule];
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+        3:  136:    map<string, unsigned long long> needed;
+call    0 returned 100%
+       10:  137:    for (const auto& [atom, per_mol] : recipe) needed[atom] += per_mol * count;
+call    0 returned 100%
+call    1 returned 100%
+call    2 returned 100%
+call    3 returned 100%
+call    4 returned 100%
+call    5 returned 100%
+branch  6 taken 100% (fallthrough)
+branch  7 taken 0% (throw)
+call    8 returned 100%
+call    9 returned 100%
+branch 10 taken 70%
+branch 11 taken 30% (fallthrough)
+        -:  138:
+        3:  139:    if (!atom_name.empty()) {
+call    0 returned 100%
+branch  1 taken 0% (fallthrough)
+branch  2 taken 100%
+    #####:  140:        string upper_atom = atom_name;
+call    0 never executed
+branch  1 never executed (fallthrough)
+branch  2 never executed (throw)
+    #####:  141:        transform(upper_atom.begin(), upper_atom.end(), upper_atom.begin(), ::toupper);
+call    0 never executed
+call    1 never executed
+call    2 never executed
+call    3 never executed
+    #####:  142:        if (atom_inventory.find(upper_atom) == atom_inventory.end()) {
+call    0 never executed
+call    1 never executed
+branch  2 never executed (fallthrough)
+branch  3 never executed (throw)
+call    4 never executed
+branch  5 never executed (fallthrough)
+branch  6 never executed
+    #####:  143:            return "ERROR: Invalid atom '" + upper_atom + "'";
+call    0 never executed
+branch  1 never executed (fallthrough)
+branch  2 never executed (throw)
+call    3 never executed
+branch  4 never executed (fallthrough)
+branch  5 never executed (throw)
+call    6 never executed
+call    7 never executed
+        -:  144:        }
+    #####:  145:        needed[upper_atom] += count;
+call    0 never executed
+branch  1 never executed (fallthrough)
+branch  2 never executed (throw)
+    #####:  146:    }
+call    0 never executed
+branch  1 never executed (fallthrough)
+branch  2 never executed
+call    3 never executed
+        -:  147:
+        -:  148:    // Check if any atoms are missing for the delivery
+        3:  149:    vector<string> missing_atoms;
+call    0 returned 100%
+       10:  150:    for (const auto& [atom, need_count] : needed) {
+call    0 returned 100%
+call    1 returned 100%
+call    2 returned 100%
+call    3 returned 100%
+call    4 returned 100%
+call    5 returned 100%
+call    6 returned 100%
+branch  7 taken 70%
+branch  8 taken 30% (fallthrough)
+        7:  151:        if (atom_inventory[atom] < need_count) {
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+branch  3 taken 0% (fallthrough)
+branch  4 taken 100%
+    #####:  152:            unsigned long long missing = need_count - atom_inventory[atom];
+call    0 never executed
+branch  1 never executed (fallthrough)
+branch  2 never executed (throw)
+    #####:  153:            missing_atoms.push_back(to_string(missing) + " " + atom);
+call    0 never executed
+branch  1 never executed (fallthrough)
+branch  2 never executed (throw)
+call    3 never executed
+branch  4 never executed (fallthrough)
+branch  5 never executed (throw)
+call    6 never executed
+branch  7 never executed (fallthrough)
+branch  8 never executed (throw)
+call    9 never executed
+branch 10 never executed (fallthrough)
+branch 11 never executed (throw)
+call   12 never executed
+call   13 never executed
+call   14 never executed
+call   15 never executed
+call   16 never executed
+call   17 never executed
+        -:  154:        }
+        -:  155:    }
+        -:  156:
+        3:  157:    if (!missing_atoms.empty()) {
+call    0 returned 100%
+branch  1 taken 0% (fallthrough)
+branch  2 taken 100%
+    #####:  158:        string error = "ERROR: Not enough atoms – missing ";
+call    0 never executed
+branch  1 never executed (fallthrough)
+branch  2 never executed (throw)
+    #####:  159:        for (size_t i = 0; i < missing_atoms.size(); ++i) {
+call    0 never executed
+branch  1 never executed
+branch  2 never executed (fallthrough)
+    #####:  160:            if (i > 0) error += ", ";
+branch  0 never executed (fallthrough)
+branch  1 never executed
+call    2 never executed
+branch  3 never executed (fallthrough)
+branch  4 never executed (throw)
+    #####:  161:            error += missing_atoms[i];
+call    0 never executed
+call    1 never executed
+branch  2 never executed (fallthrough)
+branch  3 never executed (throw)
+        -:  162:        }
+    #####:  163:        return error;
+call    0 never executed
+    #####:  164:    }
+call    0 never executed
+call    1 never executed
+        -:  165:
+       10:  166:    for (const auto& [atom, need_count] : needed)
+call    0 returned 100%
+call    1 returned 100%
+call    2 returned 100%
+call    3 returned 100%
+call    4 returned 100%
+call    5 returned 100%
+branch  6 taken 70%
+branch  7 taken 30% (fallthrough)
+        7:  167:        atom_inventory[atom] -= need_count;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+        -:  168:
+        3:  169:    molecule_inventory[real_molecule] += count;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+        3:  170:    print_inventory();
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+        3:  171:    return "OK: Delivered " + to_string(count) + " " + molecule_name + " molecules";
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+call    6 returned 100%
+branch  7 taken 100% (fallthrough)
+branch  8 taken 0% (throw)
+call    9 returned 100%
+branch 10 taken 100% (fallthrough)
+branch 11 taken 0% (throw)
+call   12 returned 100%
+branch 13 taken 100% (fallthrough)
+branch 14 taken 0% (throw)
+call   15 returned 100%
+call   16 returned 100%
+call   17 returned 100%
+call   18 returned 100%
+call   19 never executed
+call   20 never executed
+call   21 never executed
+call   22 never executed
+        6:  172:}
+call    0 returned 100%
+call    1 returned 100%
+call    2 returned 100%
+call    3 returned 100%
+call    4 returned 100%
+call    5 returned 100%
+call    6 returned 100%
+call    7 returned 100%
+call    8 returned 100%
+call    9 returned 100%
+call   10 never executed
+call   11 never executed
+call   12 never executed
+call   13 never executed
+call   14 never executed
+call   15 never executed
+call   16 never executed
+call   17 never executed
+call   18 never executed
+call   19 never executed
+        -:  173:
+        -:  174:/**
+        -:  175: * @brief Computes how many full drinks of a type can be prepared with available atoms.
+        -:  176: * @param drink_name The name of the drink (e.g., "VODKA").
+        -:  177: * @return Number of drinks that can be prepared.
+        -:  178: */
+function _Z19compute_drink_countRKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE called 3 returned 100% blocks executed 63%
+        3:  179:unsigned long long compute_drink_count(const string& drink_name) {
+        -:  180:    // Required atom counts for one drink
+        3:  181:    unsigned long long needed_carbon = 0;
+        3:  182:    unsigned long long needed_hydrogen = 0;
+        3:  183:    unsigned long long needed_oxygen = 0;
+        -:  184:
+        3:  185:    if (drink_name == "SOFT DRINK") {
+call    0 returned 100%
+branch  1 taken 33% (fallthrough)
+branch  2 taken 67%
+        -:  186:        // Contains: WATER (H2O), CARBON DIOXIDE (CO2), GLUCOSE (C6H12O6)
+        1:  187:        needed_carbon = 1 + 6;           // 1 from CO2, 6 from GLUCOSE
+        1:  188:        needed_hydrogen = 2 + 12;        // 2 from WATER, 12 from GLUCOSE
+        1:  189:        needed_oxygen = 1 + 2 + 6;       // 1 from WATER, 2 from CO2, 6 from GLUCOSE
+        2:  190:    } else if (drink_name == "VODKA") {
+call    0 returned 100%
+branch  1 taken 50% (fallthrough)
+branch  2 taken 50%
+        -:  191:        // Contains: WATER, ALCOHOL (C2H6O), GLUCOSE
+        1:  192:        needed_carbon = 2 + 6;           // 2 from ALCOHOL, 6 from GLUCOSE
+        1:  193:        needed_hydrogen = 2 + 6 + 12;    // 2 from WATER, 6 from ALCOHOL, 12 from GLUCOSE
+        1:  194:        needed_oxygen = 1 + 1 + 6;       // 1 from WATER, 1 from ALCOHOL, 6 from GLUCOSE
+        1:  195:    } else if (drink_name == "CHAMPAGNE") {
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0%
+        -:  196:        // Contains: WATER, CO2, ALCOHOL
+        1:  197:        needed_carbon = 1 + 2;           // 1 from CO2, 2 from ALCOHOL
+        1:  198:        needed_hydrogen = 2 + 6;         // 2 from WATER, 6 from ALCOHOL
+        1:  199:        needed_oxygen = 1 + 2 + 1;       // 1 from WATER, 2 from CO2, 1 from ALCOHOL
+        -:  200:    } else {
+        -:  201:        // Drink not recognized
+    #####:  202:        return 0;
+        -:  203:    }
+        -:  204:
+        -:  205:    // Calculate how many full drinks can be made based on current atom inventory
+        6:  206:    unsigned long long from_carbon = atom_inventory["CARBON"] / needed_carbon;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+call    6 returned 100%
+call    7 never executed
+call    8 never executed
+        6:  207:    unsigned long long from_hydrogen = atom_inventory["HYDROGEN"] / needed_hydrogen;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+call    6 returned 100%
+call    7 never executed
+call    8 never executed
+        3:  208:    unsigned long long from_oxygen = atom_inventory["OXYGEN"] / needed_oxygen;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+call    6 returned 100%
+call    7 never executed
+call    8 never executed
+        -:  209:
+        -:  210:    // The limiting atom determines the maximum number of drinks possible
+        3:  211:    return std::min({from_carbon, from_hydrogen, from_oxygen});
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+        -:  212:}
+        -:  213:
+        -:  214:/**
+        -:  215: * @brief Main server loop. Listens on TCP and UDP ports and handles incoming commands.
+        -:  216: */
+function main called 1 returned 0% blocks executed 69%
+        1:  217:int main(int argc, char* argv[]) {
+        1:  218:    signal(SIGINT, handle_sigint);  // Catch Ctrl+C
+call    0 returned 100%
+        1:  219:    if (argc != 3) {
+branch  0 taken 0% (fallthrough)
+branch  1 taken 100%
+    #####:  220:        cerr << "Usage: " << argv[0] << " <TCP_PORT> <UDP_PORT>" << endl;
+call    0 never executed
+branch  1 never executed (fallthrough)
+branch  2 never executed (throw)
+call    3 never executed
+branch  4 never executed (fallthrough)
+branch  5 never executed (throw)
+call    6 never executed
+branch  7 never executed (fallthrough)
+branch  8 never executed (throw)
+call    9 never executed
+branch 10 never executed (fallthrough)
+branch 11 never executed (throw)
+    #####:  221:        return 1;
+        -:  222:    }
+        1:  223:    int tcp_port = atoi(argv[1]);
+        1:  224:    int udp_port = atoi(argv[2]);
+        -:  225:
+        -:  226:    // Create and bind TCP socket
+        1:  227:    int tcp_sock = socket(AF_INET, SOCK_STREAM, 0);
+call    0 returned 100%
+        1:  228:    sockaddr_in tcp_addr {};
+        1:  229:    tcp_addr.sin_family = AF_INET;
+        1:  230:    tcp_addr.sin_addr.s_addr = INADDR_ANY;
+        1:  231:    tcp_addr.sin_port = htons(tcp_port);
+        1:  232:    bind(tcp_sock, (sockaddr*)&tcp_addr, sizeof(tcp_addr));
+call    0 returned 100%
+        1:  233:    listen(tcp_sock, 5);
+call    0 returned 100%
+        -:  234:
+        -:  235:    // Create and bind UDP socket
+        1:  236:    int udp_sock = socket(AF_INET, SOCK_DGRAM, 0);
+call    0 returned 100%
+        1:  237:    sockaddr_in udp_addr {};
+        1:  238:    udp_addr.sin_family = AF_INET;
+        1:  239:    udp_addr.sin_addr.s_addr = INADDR_ANY;
+        1:  240:    udp_addr.sin_port = htons(udp_port);
+        1:  241:    bind(udp_sock, (sockaddr*)&udp_addr, sizeof(udp_addr));
+call    0 returned 100%
+        -:  242:
+        1:  243:    cout << "bar_drinks running on TCP port " << tcp_port << " and UDP port " << udp_port << "..." << endl;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+call    6 returned 100%
+branch  7 taken 100% (fallthrough)
+branch  8 taken 0% (throw)
+call    9 returned 100%
+branch 10 taken 100% (fallthrough)
+branch 11 taken 0% (throw)
+call   12 returned 100%
+branch 13 taken 100% (fallthrough)
+branch 14 taken 0% (throw)
+call   15 returned 100%
+branch 16 taken 100% (fallthrough)
+branch 17 taken 0% (throw)
+        -:  244:
+        1:  245:    tcflush(STDIN_FILENO, TCIFLUSH); // Clear input buffer before select
+call    0 returned 100%
+        -:  246:    fd_set master, read_fds;
+       17:  247:    FD_ZERO(&master);
+branch  0 taken 94%
+branch  1 taken 6% (fallthrough)
+        1:  248:    FD_SET(tcp_sock, &master);
+        1:  249:    FD_SET(udp_sock, &master);
+        1:  250:    FD_SET(STDIN_FILENO, &master);
+        1:  251:    int fdmax = max({tcp_sock, udp_sock, STDIN_FILENO});
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+        -:  252:
+        1:  253:    vector<int> clients;
+call    0 returned 100%
+        -:  254:
+        -:  255:    while (true) {
+       25:  256:        read_fds = master;
+       25:  257:        FD_SET(STDIN_FILENO, &read_fds);
+       25:  258:        if (select(fdmax + 1, &read_fds, nullptr, nullptr, nullptr) < 0) {
+call    0 returned 96%
+branch  1 taken 96% (fallthrough)
+branch  2 taken 0% (throw)
+branch  3 taken 0% (fallthrough)
+branch  4 taken 100%
+    #####:  259:            perror("select");
+call    0 never executed
+branch  1 never executed (fallthrough)
+branch  2 never executed (throw)
+    #####:  260:            break;
+        -:  261:        }
+        -:  262:
+      168:  263:        for (int i = 0; i <= fdmax; ++i) {
+branch  0 taken 86%
+branch  1 taken 14% (fallthrough)
+      144:  264:            if (!FD_ISSET(i, &read_fds)) continue;
+branch  0 taken 83% (fallthrough)
+branch  1 taken 17%
+        -:  265:
+       24:  266:            if (i == tcp_sock) {
+branch  0 taken 4% (fallthrough)
+branch  1 taken 96%
+        -:  267:                // Handle new TCP connection
+        1:  268:                int newfd = accept(tcp_sock, nullptr, nullptr);
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+       1*:  269:                if (newfd < 0) {
+branch  0 taken 0% (fallthrough)
+branch  1 taken 100%
+    #####:  270:                    perror("accept failed");
+call    0 never executed
+branch  1 never executed (fallthrough)
+branch  2 never executed (throw)
+    #####:  271:                    continue;
+        -:  272:                }
+        1:  273:                FD_SET(newfd, &master);
+        1:  274:                fdmax = max({fdmax, newfd}); 
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+        1:  275:                clients.push_back(newfd);
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+        -:  276:
+       23:  277:            } else if (i == udp_sock) {
+branch  0 taken 26% (fallthrough)
+branch  1 taken 74%
+        -:  278:                // Handle UDP request
+        6:  279:                char buf[1024] = {0};
+        6:  280:                sockaddr_in client_addr {};
+        6:  281:                socklen_t len = sizeof(client_addr);
+        6:  282:                int n = recvfrom(udp_sock, buf, sizeof(buf) - 1, 0, (sockaddr*)&client_addr, &len);
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+        6:  283:                if (n > 0) {
+branch  0 taken 100% (fallthrough)
+branch  1 taken 0%
+        6:  284:                    string response = handle_udp_command(string(buf));
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+call    6 returned 100%
+call    7 never executed
+        6:  285:                    cout << response << endl;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+        6:  286:                    sendto(udp_sock, response.c_str(), response.size(), 0, (sockaddr*)&client_addr, len);
+call    0 returned 100%
+call    1 returned 100%
+call    2 returned 100%
+branch  3 taken 100% (fallthrough)
+branch  4 taken 0% (throw)
+        6:  287:                }
+call    0 returned 100%
+call    1 never executed
+        -:  288:
+       17:  289:            } else if (i == STDIN_FILENO) {
+branch  0 taken 41% (fallthrough)
+branch  1 taken 59%
+        -:  290:                // Handle local user input from keyboard
+        7:  291:                string line;
+call    0 returned 100%
+        7:  292:                getline(cin, line);
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+        7:  293:                transform(line.begin(), line.end(), line.begin(), ::toupper);
+call    0 returned 100%
+call    1 returned 100%
+call    2 returned 100%
+call    3 returned 100%
+        7:  294:                istringstream iss(line);
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+        7:  295:                string command, drink;
+call    0 returned 100%
+call    1 returned 100%
+        7:  296:                iss >> command;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+        7:  297:                getline(iss, drink);
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+        7:  298:                drink.erase(0, drink.find_first_not_of(" "));
+call    0 returned 100%
+call    1 returned 100%
+branch  2 taken 100% (fallthrough)
+branch  3 taken 0% (throw)
+        7:  299:                transform(drink.begin(), drink.end(), drink.begin(), ::toupper);
+call    0 returned 100%
+call    1 returned 100%
+call    2 returned 100%
+call    3 returned 100%
+        -:  300:
+        7:  301:                if (command == "GEN" && drink_recipes.find(drink) != drink_recipes.end()) {
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+branch  3 taken 57% (fallthrough)
+branch  4 taken 43%
+call    5 returned 100%
+call    6 returned 100%
+branch  7 taken 100% (fallthrough)
+branch  8 taken 0% (throw)
+call    9 returned 100%
+branch 10 taken 75% (fallthrough)
+branch 11 taken 25%
+branch 12 taken 43% (fallthrough)
+branch 13 taken 57%
+        3:  302:                   unsigned long long count = compute_drink_count(drink);
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+        3:  303:                    cout << "Can prepare " << count << " " << drink << " drinks" << endl;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+call    6 returned 100%
+branch  7 taken 100% (fallthrough)
+branch  8 taken 0% (throw)
+call    9 returned 100%
+branch 10 taken 100% (fallthrough)
+branch 11 taken 0% (throw)
+call   12 returned 100%
+branch 13 taken 100% (fallthrough)
+branch 14 taken 0% (throw)
+call   15 returned 100%
+branch 16 taken 100% (fallthrough)
+branch 17 taken 0% (throw)
+        -:  304:                } else {
+        4:  305:                    cout << "Unknown drink command: " << line << endl;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+call    6 returned 100%
+branch  7 taken 100% (fallthrough)
+branch  8 taken 0% (throw)
+        -:  306:                }
+        -:  307:
+        7:  308:            } else {
+call    0 returned 100%
+call    1 returned 100%
+call    2 returned 100%
+call    3 returned 100%
+call    4 never executed
+call    5 never executed
+call    6 never executed
+call    7 never executed
+        -:  309:                // Handle incoming TCP message from existing client
+       10:  310:                char buf[1024] = {0};
+       10:  311:                int n = recv(i, buf, sizeof(buf) - 1, 0);
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+       10:  312:                if (n <= 0) {
+branch  0 taken 0% (fallthrough)
+branch  1 taken 100%
+    #####:  313:                    close(i);
+call    0 never executed
+branch  1 never executed (fallthrough)
+branch  2 never executed (throw)
+    #####:  314:                    FD_CLR(i, &master);
+        -:  315:                } else {
+       20:  316:                    handle_tcp_command(string(buf));
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+call    6 returned 100%
+call    7 never executed
+        -:  317:                }
+        -:  318:            }
+        -:  319:        }
+       24:  320:    }
+    #####:  321:    return 0;
+    #####:  322:}
+call    0 never executed
+call    1 never executed

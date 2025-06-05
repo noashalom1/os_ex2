@@ -11,8 +11,20 @@
 #include <sys/select.h>
 #include <climits>
 #include <cstdlib>
+#include <csignal>  // for the signals 
+#include <cstdlib>  // exit()
+
 #define MAX_VALUE 1000000000000000000
+
 using namespace std;
+
+/**
+ * @brief Handles SIGINT (Ctrl+C) signal and exits cleanly.
+ */
+void handle_sigint([[maybe_unused]] int sig) {
+    cout << "\n📤 Caught SIGINT (Ctrl+C). Exiting cleanly...\n";
+    exit(0);  // makes the .gcda 
+}
 
 // Global inventory for atoms (Carbon, Oxygen, Hydrogen)
 map<string, unsigned long long> atom_inventory = {
@@ -62,16 +74,14 @@ void add_atoms(const string& atom_type, const string& amount_string) {
         cerr << "Invalid command: amount must be a positive number!" << endl;
         return;
     }
-
     try {
-        unsigned long long amount = stoull(amount_string); 
+        unsigned long long amount = stoull(amount_string);
         if (atom_inventory[atom_type] + amount > MAX_VALUE) {
             cerr << "Invalid command: not enough place for the atoms!" << endl;
             return;
         }
-
         atom_inventory[atom_type] += amount;
-    } catch (const exception& e) {
+    } catch (...) {
         cerr << "Error converting number" << endl;
     }
 }
@@ -95,108 +105,144 @@ int set_timeout(const string& timeout) {
 }
 
 /**
- * @brief Processes a TCP command for adding atoms.
+ * @brief Handles a TCP command from the client (currently supports ADD).
+ * @param command The full command line string received.
  */
 void handle_tcp_command(const string& command) {
     istringstream iss(command);
-    string action, atom, amount_string;
-
-    iss >> action >> atom >> amount_string;
-    transform(atom.begin(), atom.end(), atom.begin(), ::toupper);
-
-    if (action != "ADD" || atom_inventory.find(atom) == atom_inventory.end() || iss.fail()) {
-        cerr << "Invalid TCP command!" << endl;
+    string action, atom_type, amount_string;
+    iss >> action >> atom_type >> amount_string;
+    transform(atom_type.begin(), atom_type.end(), atom_type.begin(), ::toupper);
+    if (action != "ADD" || atom_inventory.find(atom_type) == atom_inventory.end()) {
+        cerr << "Invalid command!" << endl;
         return;
     }
-
-    add_atoms(atom, amount_string);
+    add_atoms(atom_type, amount_string);
     print_inventory();
 }
 
+
 /**
- * @brief Handles a UDP command for delivering molecules.
- * @return A status message indicating success or error.
+ * @brief Handles a UDP DELIVER command and updates inventories accordingly.
+ * @param command The full UDP command string.
+ * @return A status string indicating success or the specific error.
  */
 string handle_udp_command(const string& command) {
     istringstream iss(command);
     string action;
     iss >> action;
-
-    if (action != "DELIVER") {
-        return "ERROR: Invalid command";
-    }
+    if (action != "DELIVER") return "ERROR: Invalid command";
 
     vector<string> tokens;
     string token;
     while (iss >> token) tokens.push_back(token);
-
     if (tokens.size() < 2) return "ERROR: Invalid command format";
 
-  
     string count_str = tokens.back();
+    if (!all_of(count_str.begin(), count_str.end(), ::isdigit)) return "ERROR: Not a positive number";
 
-    if (!all_of(count_str.begin(), count_str.end(), ::isdigit)) {
-        return "ERROR: Not a positive number";
-    }
-
-    unsigned long long count;
-    try {
-        count = stoull(count_str);
-    } catch (const exception& e) {
-        return "ERROR: Conversion failed";
-    }
-
+    unsigned long long count = stoull(count_str);
     string molecule_name;
     for (size_t i = 0; i < tokens.size() - 1; ++i) {
         if (!molecule_name.empty()) molecule_name += " ";
         molecule_name += tokens[i];
     }
 
-    if (molecule_recipes.find(molecule_name) == molecule_recipes.end()) {
-        return "ERROR: Unknown molecule '" + molecule_name + "'";
+    string atom_name = "";
+    string real_molecule = molecule_name;
+    if (tokens.size() > 3) {
+        atom_name = tokens[0];
+        real_molecule = molecule_name.substr(atom_name.size() + 1); // Remove atom prefix if exists
     }
 
-    const auto& recipe = molecule_recipes[molecule_name];
+    if (molecule_recipes.find(real_molecule) == molecule_recipes.end()) {
+        return "ERROR: Unknown molecule '" + real_molecule + "'";
+    }
+
+    const auto& recipe = molecule_recipes[real_molecule];
     map<string, unsigned long long> needed;
-    for (const auto& [atom, per_mol] : recipe) {
-        needed[atom] += per_mol * count;
+    for (const auto& [atom, per_mol] : recipe) needed[atom] += per_mol * count;
+
+    if (!atom_name.empty()) {
+        string upper_atom = atom_name;
+        transform(upper_atom.begin(), upper_atom.end(), upper_atom.begin(), ::toupper);
+        if (atom_inventory.find(upper_atom) == atom_inventory.end()) {
+            return "ERROR: Invalid atom '" + upper_atom + "'";
+        }
+        needed[upper_atom] += count;
     }
 
+    // Check if any atoms are missing for the delivery
+    vector<string> missing_atoms;
     for (const auto& [atom, need_count] : needed) {
         if (atom_inventory[atom] < need_count) {
-            return "ERROR: Not enough atoms – missing " + to_string(need_count - atom_inventory[atom]) + " " + atom;
+            unsigned long long missing = need_count - atom_inventory[atom];
+            missing_atoms.push_back(to_string(missing) + " " + atom);
         }
     }
 
-    for (const auto& [atom, need_count] : needed) {
-        atom_inventory[atom] -= need_count;
+    if (!missing_atoms.empty()) {
+        string error = "ERROR: Not enough atoms – missing ";
+        for (size_t i = 0; i < missing_atoms.size(); ++i) {
+            if (i > 0) error += ", ";
+            error += missing_atoms[i];
+        }
+        return error;
     }
 
-    cout << "DELIVERED: " << count << " " << molecule_name << " molecules" << endl;
-    add_molecules_to_inventory(molecule_name, count);
+    for (const auto& [atom, need_count] : needed)
+        atom_inventory[atom] -= need_count;
+
+    molecule_inventory[real_molecule] += count;
     print_inventory();
     return "OK: Delivered " + to_string(count) + " " + molecule_name + " molecules";
 }
 
 /**
- * @brief Computes how many drinks of the specified type can be made.
- * @return The number of drinks that can be prepared.
+ * @brief Computes how many full drinks of a type can be prepared with available atoms.
+ * @param drink_name The name of the drink (e.g., "VODKA").
+ * @return Number of drinks that can be prepared.
  */
-int compute_drink_count(const string& drink_name) {
-    if (drink_recipes.find(drink_name) == drink_recipes.end()) return 0;
+unsigned long long compute_drink_count(const string& drink_name) {
+    // Required atom counts for one drink
+    unsigned long long needed_carbon = 0;
+    unsigned long long needed_hydrogen = 0;
+    unsigned long long needed_oxygen = 0;
 
-    int min_count = INT_MAX;
-    for (const string& mol : drink_recipes[drink_name]) {
-        if (molecule_inventory.find(mol) == molecule_inventory.end()) return 0;
-        min_count = min(min_count, static_cast<int>(molecule_inventory[mol]));
+    if (drink_name == "SOFT DRINK") {
+        // Contains: WATER (H2O), CARBON DIOXIDE (CO2), GLUCOSE (C6H12O6)
+        needed_carbon = 1 + 6;           // 1 from CO2, 6 from GLUCOSE
+        needed_hydrogen = 2 + 12;        // 2 from WATER, 12 from GLUCOSE
+        needed_oxygen = 1 + 2 + 6;       // 1 from WATER, 2 from CO2, 6 from GLUCOSE
+    } else if (drink_name == "VODKA") {
+        // Contains: WATER, ALCOHOL (C2H6O), GLUCOSE
+        needed_carbon = 2 + 6;           // 2 from ALCOHOL, 6 from GLUCOSE
+        needed_hydrogen = 2 + 6 + 12;    // 2 from WATER, 6 from ALCOHOL, 12 from GLUCOSE
+        needed_oxygen = 1 + 1 + 6;       // 1 from WATER, 1 from ALCOHOL, 6 from GLUCOSE
+    } else if (drink_name == "CHAMPAGNE") {
+        // Contains: WATER, CO2, ALCOHOL
+        needed_carbon = 1 + 2;           // 1 from CO2, 2 from ALCOHOL
+        needed_hydrogen = 2 + 6;         // 2 from WATER, 6 from ALCOHOL
+        needed_oxygen = 1 + 2 + 1;       // 1 from WATER, 2 from CO2, 1 from ALCOHOL
+    } else {
+        // Drink not recognized
+        return 0;
     }
-    return min_count;
+
+    // Calculate how many full drinks can be made based on current atom inventory
+    unsigned long long from_carbon = atom_inventory["CARBON"] / needed_carbon;
+    unsigned long long from_hydrogen = atom_inventory["HYDROGEN"] / needed_hydrogen;
+    unsigned long long from_oxygen = atom_inventory["OXYGEN"] / needed_oxygen;
+
+    // The limiting atom determines the maximum number of drinks possible
+    return std::min({from_carbon, from_hydrogen, from_oxygen});
 }
 
 /**
  * @brief Main server function: initializes sockets, parses flags, and runs event loop.
  */
 int main(int argc, char* argv[]) {
+    signal(SIGINT, handle_sigint);  // Catch Ctrl+C
     int tcp_port = -1, udp_port = -1;
     int timeout = -1;
     int opt;
@@ -307,7 +353,7 @@ int main(int argc, char* argv[]) {
                 transform(command.begin(), command.end(), command.begin(), ::toupper);
                 transform(drink.begin(), drink.end(), drink.begin(), ::toupper);
                 if (command == "GEN" && drink_recipes.find(drink) != drink_recipes.end()) {
-                    int count = compute_drink_count(drink);
+                    unsigned long long count = compute_drink_count(drink);
                     cout << "Can prepare " << count << " " << drink << " drinks" << endl;
                 } else {
                     cout << "Unknown drink command: " << line << endl;

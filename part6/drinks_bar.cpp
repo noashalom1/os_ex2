@@ -11,13 +11,25 @@
 #include <sys/select.h>
 #include <climits>
 #include <cstdlib>
+#include <csignal>  // for the signals 
+#include <cstdlib>  // exit()
+#include <sys/un.h>
+
 #define MAX_VALUE 1000000000000000000
 using namespace std;
-#include <sys/un.h>
 #define UNIX_STREAM_PATH "/tmp/drinks_bar_stream.sock"
 #define UNIX_DGRAM_PATH "/tmp/drinks_bar_dgram.sock"
+
 bool history_path = false;
 const char* path = "default_data.txt";
+
+/**
+ * @brief Handles SIGINT (Ctrl+C) signal and exits cleanly.
+ */
+void handle_sigint([[maybe_unused]] int sig) {
+    cout << "\n📤 Caught SIGINT (Ctrl+C). Exiting cleanly...\n";
+    exit(0);  // makes the .gcda 
+}
 
 /**
  * @struct file_storage
@@ -300,21 +312,47 @@ string handle_udp_command(const string& command) {
 }
 
 /**
- * @brief Computes how many drinks of the specified type can be made.
- * @return The number of drinks that can be prepared.
+ * @brief Computes how many full drinks of a type can be prepared with available atoms.
+ * @param drink_name The name of the drink (e.g., "VODKA").
+ * @return Number of drinks that can be prepared.
  */
-int compute_drink_count(const string& drink_name) {
-    if (drink_recipes.find(drink_name) == drink_recipes.end()) return 0;
+unsigned long long compute_drink_count(const string& drink_name) {
+    // Required atom counts for one drink
+    unsigned long long needed_carbon = 0;
+    unsigned long long needed_hydrogen = 0;
+    unsigned long long needed_oxygen = 0;
 
-    int min_count = INT_MAX;
-    for (const string& mol : drink_recipes[drink_name]) {
-        if (molecule_inventory.find(mol) == molecule_inventory.end()) return 0;
-        min_count = min(min_count, static_cast<int>(molecule_inventory[mol]));
+    if (drink_name == "SOFT DRINK") {
+        // Contains: WATER (H2O), CARBON DIOXIDE (CO2), GLUCOSE (C6H12O6)
+        needed_carbon = 1 + 6;           // 1 from CO2, 6 from GLUCOSE
+        needed_hydrogen = 2 + 12;        // 2 from WATER, 12 from GLUCOSE
+        needed_oxygen = 1 + 2 + 6;       // 1 from WATER, 2 from CO2, 6 from GLUCOSE
+    } else if (drink_name == "VODKA") {
+        // Contains: WATER, ALCOHOL (C2H6O), GLUCOSE
+        needed_carbon = 2 + 6;           // 2 from ALCOHOL, 6 from GLUCOSE
+        needed_hydrogen = 2 + 6 + 12;    // 2 from WATER, 6 from ALCOHOL, 12 from GLUCOSE
+        needed_oxygen = 1 + 1 + 6;       // 1 from WATER, 1 from ALCOHOL, 6 from GLUCOSE
+    } else if (drink_name == "CHAMPAGNE") {
+        // Contains: WATER, CO2, ALCOHOL
+        needed_carbon = 1 + 2;           // 1 from CO2, 2 from ALCOHOL
+        needed_hydrogen = 2 + 6;         // 2 from WATER, 6 from ALCOHOL
+        needed_oxygen = 1 + 2 + 1;       // 1 from WATER, 2 from CO2, 1 from ALCOHOL
+    } else {
+        // Drink not recognized
+        return 0;
     }
-    return min_count;
+
+    // Calculate how many full drinks can be made based on current atom inventory
+    unsigned long long from_carbon = atom_inventory["CARBON"] / needed_carbon;
+    unsigned long long from_hydrogen = atom_inventory["HYDROGEN"] / needed_hydrogen;
+    unsigned long long from_oxygen = atom_inventory["OXYGEN"] / needed_oxygen;
+
+    // The limiting atom determines the maximum number of drinks possible
+    return std::min({from_carbon, from_hydrogen, from_oxygen});
 }
 
 int main(int argc, char* argv[]) {
+    signal(SIGINT, handle_sigint);  // Catch Ctrl+C
     int tcp_port = -1, udp_port = -1;
     int timeout = -1;
     int opt;
@@ -525,7 +563,7 @@ int main(int argc, char* argv[]) {
                 transform(command.begin(), command.end(), command.begin(), ::toupper);
                 transform(drink.begin(), drink.end(), drink.begin(), ::toupper);
                 if (command == "GEN" && drink_recipes.find(drink) != drink_recipes.end()) {
-                    int count = compute_drink_count(drink);
+                    unsigned long long count = compute_drink_count(drink);
                     cout << "Can prepare " << count << " " << drink << " drinks" << endl;
                 } else {
                     cout << "Unknown drink command: " << line << endl;
