@@ -4,7 +4,7 @@
 File 'molecule_supplier.cpp'
 Lines executed:87.18% of 156
 Branches executed:87.10% of 310
-Taken at least once:53.87% of 310
+Taken at least once:54.19% of 310
 Calls executed:73.00% of 263
  atom_supplier.cpp not covered or missing
  Cleaning .gcov files except project sources...
