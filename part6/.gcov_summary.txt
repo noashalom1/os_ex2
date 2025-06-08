@@ -1,0 +1,10 @@
+ Running gcov on drinks_bar.gcno in ....
+---- Filtered Coverage Report (only SRCS cpp files) ----
+ molecule_requester.cpp not covered or missing
+File 'drinks_bar.cpp'
+Lines executed:82.95% of 352
+Branches executed:85.58% of 624
+Taken at least once:50.64% of 624
+Calls executed:72.65% of 468
+ atom_supplier.cpp not covered or missing
+ Cleaning .gcov files except project sources...
