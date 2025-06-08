@@ -76,6 +76,13 @@ void handle_command(const string& command) {
         cerr << "Invalid command!" << endl;
         return;
     }
+    
+    // detect extra arguments
+    string extra; 
+    if (iss >> extra) {
+        cerr << "Invalid command: too many arguments!" << endl;
+        return;
+    }
 
     transform(atom_type.begin(), atom_type.end(), atom_type.begin(), ::toupper);
 
@@ -152,6 +159,7 @@ int main(int argc, char* argv[]) {
                     char buf[1024] = {0};
                     int nbytes = recv(i, buf, sizeof(buf), 0);
                     if (nbytes <= 0) {
+                        cout << "🔌 Client disconnected on socket " << i << endl;
                         close(i);
                         FD_CLR(i, &master_set);
                     } else {

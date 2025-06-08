@@ -1,0 +1,30 @@
+#!/usr/bin/expect -f
+set timeout 1
+set host [lindex $argv 0]
+set port [lindex $argv 1]
+
+# הפעלת הלקוח
+spawn ./molecule_requester $host $port
+
+# המתנה להודעת פתיחה
+expect {
+    "Connected to molecule server" {}
+    timeout { puts "❌ Failed to connect to molecule server"; exit 1 }
+}
+
+# פתיחת קובץ הפקודות
+set f [open "commands_molecular.txt"]
+while {[gets $f line] >= 0} {
+    send -- "$line\r"
+    expect {
+        -re "Server response:.*\n" {}
+        timeout {}
+    }
+    sleep 0.1
+}
+close $f
+
+# סיום
+sleep 1
+send -- "\004"  ;# שליחת EOF
+expect eof

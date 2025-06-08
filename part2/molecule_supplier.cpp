@@ -81,6 +81,13 @@ void handle_tcp_command(const string& command) {
         return;
     }
 
+    // detect extra arguments
+    string extra; 
+    if (iss >> extra) {
+        cerr << "Invalid command: too many arguments!" << endl;
+        return;
+    }
+
     transform(atom_type.begin(), atom_type.end(), atom_type.begin(), ::toupper); // Convert atom name to uppercase
 
     if (atom_inventory.find(atom_type) != atom_inventory.end()) {

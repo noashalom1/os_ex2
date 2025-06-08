@@ -45,12 +45,15 @@ int main(int argc, char* argv[]) {
 
     int sock;
     sockaddr_storage server_addr{};
+    string client_path;  // For UDS client socket file (needed for binding)
+
     socklen_t addr_len;
 
-    if (!uds_path.empty()) {
-        addrinfo hints{}, *res; // Resolve server address
-        hints.ai_family = AF_INET; // IPv4
-        hints.ai_socktype = SOCK_DGRAM; // UDP
+    if (uds_path.empty()) {
+        // --- UDP ---
+        addrinfo hints{}, *res;
+        hints.ai_family = AF_INET;
+        hints.ai_socktype = SOCK_DGRAM;
 
         string port_str = to_string(port);
         int status = getaddrinfo(hostname.c_str(), port_str.c_str(), &hints, &res);
@@ -61,7 +64,7 @@ int main(int argc, char* argv[]) {
 
         sock = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
         if (sock < 0) {
-            perror("socket (INET)");
+            perror("socket (UDP)");
             freeaddrinfo(res);
             return 1;
         }
@@ -71,26 +74,34 @@ int main(int argc, char* argv[]) {
 
         cout << "Connected to UDP server at " << hostname << ":" << port << endl;
         freeaddrinfo(res);
+        } else {
+            // --- UDS ---
+            sock = socket(AF_UNIX, SOCK_DGRAM, 0);
+            if (sock < 0) {
+                perror("socket (UDS)");
+                return 1;
+            }
 
+            // Bind client socket to unique path
+            client_path = "/tmp/uds_client_" + to_string(getpid());
+            sockaddr_un client_addr{};
+            client_addr.sun_family = AF_UNIX;
+            strncpy(client_addr.sun_path, client_path.c_str(), sizeof(client_addr.sun_path) - 1);
+            if (bind(sock, (sockaddr*)&client_addr, sizeof(client_addr)) < 0) {
+                perror("bind (client UDS) failed");
+                return 1;
+            }
 
-    } else {
-        sock = socket(AF_INET, SOCK_DGRAM, 0);
-        if (sock < 0) {
-            perror("socket (INET)");
-            return 1;
+            // Set server address
+            sockaddr_un* addr = (sockaddr_un*)&server_addr;
+            addr->sun_family = AF_UNIX;
+            strncpy(addr->sun_path, uds_path.c_str(), sizeof(addr->sun_path) - 1);
+            addr_len = sizeof(sockaddr_un);
+
+            cout << "Connected to UDS server at " << uds_path << endl;
         }
 
-        sockaddr_in* addr = (sockaddr_in*)&server_addr;
-        addr->sin_family = AF_INET;
-        addr->sin_port = htons(port);
-        if (inet_pton(AF_INET, hostname.c_str(), &addr->sin_addr) <= 0) {
-            cerr << "Invalid address/hostname" << endl;
-            return 1;
-        }
-        addr_len = sizeof(sockaddr_in);
 
-        cout << "Connected to UDP server at " << hostname << ":" << port << endl;
-    }
 
     cout << "Type commands (e.g., DELIVER WATER 2):" << endl;
 
@@ -104,7 +115,10 @@ int main(int argc, char* argv[]) {
         }
 
         char buffer[1024] = {0};
-        int n = recvfrom(sock, buffer, sizeof(buffer) - 1, 0, nullptr, nullptr);
+        sockaddr_storage from_addr{};
+        socklen_t from_len = sizeof(from_addr);
+        int n = recvfrom(sock, buffer, sizeof(buffer) - 1, 0, (sockaddr*)&from_addr, &from_len);
+
         if (n < 0) {
             perror("recvfrom failed");
             continue;
@@ -113,6 +127,10 @@ int main(int argc, char* argv[]) {
         buffer[n] = '\0';
         cout << "Server response: " << buffer << endl;
     }
+    if (!client_path.empty()) {
+    unlink(client_path.c_str());
+}
+
 
     close(sock);
     return 0;

@@ -1,0 +1,10 @@
+ Running gcov on molecule_supplier.gcno in ....
+---- Filtered Coverage Report (only SRCS cpp files) ----
+ molecule_requester.cpp not covered or missing
+File 'molecule_supplier.cpp'
+Lines executed:87.18% of 156
+Branches executed:87.10% of 310
+Taken at least once:53.87% of 310
+Calls executed:73.00% of 263
+ atom_supplier.cpp not covered or missing
+ Cleaning .gcov files except project sources...

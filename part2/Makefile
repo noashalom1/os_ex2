@@ -24,39 +24,44 @@ $(TARGET_SUPPLIER): $(TARGET_SUPPLIER).cpp
 
 gcov:
 	@if [ -z "$(FILE)" ]; then \
-		echo "❌ Usage: make gcov FILE=molecule_supplier.gcno"; \
+		echo " Usage: make gcov FILE=molecule_supplier.gcno" | tee .gcov_summary.txt; \
 		exit 1; \
 	fi
 	@if [ ! -f "$(FILE)" ]; then \
-		echo "❌ File '$(FILE)' not found."; \
+		echo " File '$(FILE)' not found." | tee -a .gcov_summary.txt; \
 		exit 1; \
 	fi
 	@BASE=$$(basename $(FILE)); \
 	DIR=$$(dirname $(FILE)); \
 	GCDA=$${BASE%.gcno}.gcda; \
 	if [ ! -f $$DIR/$$GCDA ]; then \
-		echo "❌ File '$$DIR/$$GCDA' not found – did you run the binary?"; \
+		echo " File '$$DIR/$$GCDA' not found did you run the binary?" | tee -a .gcov_summary.txt; \
 		exit 1; \
 	fi; \
-	echo "✅ Running gcov on $$BASE in $$DIR..."; \
-	cd $$DIR && gcov -b -p $$BASE > ../.gcov_output.txt; \
-	cd ..; \
-	echo "---- Filtered Coverage Report (only SRCS cpp files) ----"; \
-	for src in $(SRCS_LIB) $(SRCS_MAIN); do \
-		grep -A4 "File '$$src'" .gcov_output.txt || echo "⚠️  $$src not covered or missing"; \
-	done; \
-	echo "🧹 Cleaning .gcov files except project sources..."; \
-	find . -name "*.gcov" | while read file; do \
-		base=$$(basename $$file); \
-		case " $(GCOV_KEEP) " in \
-			*" $$base "* ) ;; \
-			* ) rm -f "$$file";; \
-		esac; \
-	done; \
-	rm -f .gcov_output.txt
+	{ \
+		echo " Running gcov on $$BASE in $$DIR..."; \
+		cd $$DIR && gcov -b -p $$BASE > ../.gcov_output.txt && cd ..; \
+		echo "---- Filtered Coverage Report (only SRCS cpp files) ----"; \
+		for src in $(SRCS_LIB) $(SRCS_MAIN); do \
+			if grep -q "File '$$src'" .gcov_output.txt; then \
+				grep -A4 "File '$$src'" .gcov_output.txt; \
+			else \
+				echo " $$src not covered or missing"; \
+			fi; \
+		done; \
+		echo " Cleaning .gcov files except project sources..."; \
+		find . -name "*.gcov" | while read file; do \
+			base=$$(basename $$file); \
+			case " $(GCOV_KEEP) " in \
+				*" $$base "* ) ;; \
+				* ) rm -f "$$file";; \
+			esac; \
+		done; \
+		rm -f .gcov_output.txt; \
+	} | tee -a .gcov_summary.txt
 
 clean:
 	rm -f *.o *.gcno *.gcda $(TARGET_SERVER) $(TARGET_CLIENT) $(TARGET_SUPPLIER)
 
 clean-all: clean
-	rm -f *.gcov
+	rm -f *.gcov .gcov_summary.txt

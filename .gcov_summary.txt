@@ -1,0 +1,22 @@
+---- Filtered Coverage Report (only SRCS cpp files) ----
+File 'atom_warehouse.cpp'
+Lines executed:46.05% of 76
+Branches executed:29.58% of 142
+Taken at least once:18.31% of 142
+Calls executed:18.68% of 91
+⚠️  atom_supplier.cpp not covered or missing
+---- Filtered Coverage Report (only SRCS cpp files) ----
+File 'atom_warehouse.cpp'
+Lines executed:90.91% of 77
+Branches executed:94.59% of 148
+Taken at least once:59.46% of 148
+Calls executed:84.04% of 94
+⚠️  atom_supplier.cpp not covered or missing
+---- Filtered Coverage Report (only SRCS cpp files) ----
+File 'atom_warehouse.cpp'
+Lines executed:93.51% of 77
+Branches executed:97.30% of 148
+Taken at least once:61.49% of 148
+Calls executed:86.17% of 94
+⚠️  atom_supplier.cpp not covered or missing
+🧹 Cleaning .gcov files except project sources...

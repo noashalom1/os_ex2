@@ -163,6 +163,12 @@ void handle_tcp_command(const string& command) {
         cerr << "Invalid TCP command!" << endl;
         return;
     }
+    // detect extra arguments
+    string extra; 
+    if (iss >> extra) {
+        cerr << "Invalid command: too many arguments!" << endl;
+        return;
+    }
 
     add_atoms(atom, amount_string);
     print_inventory();
@@ -284,7 +290,7 @@ int main(int argc, char* argv[]) {
     int opt;
     string stream_path, dgram_path;
 
-    while ((opt = getopt(argc, argv, "T:U:o:c:h:t:s:d")) != -1) { // Parse command-line arguments
+    while ((opt = getopt(argc, argv, "T:U:o:c:h:t:s:d:")) != -1) { // Parse command-line arguments
         switch (opt) {
             case 'T': tcp_port = atoi(optarg); break;
             case 'U': udp_port = atoi(optarg); break;

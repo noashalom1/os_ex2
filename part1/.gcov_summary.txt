@@ -1,0 +1,9 @@
+✅ Running gcov on atom_warehouse.gcno in ....
+---- Filtered Coverage Report (only SRCS cpp files) ----
+File 'atom_warehouse.cpp'
+Lines executed:93.83% of 81
+Branches executed:97.50% of 160
+Taken at least once:61.88% of 160
+Calls executed:86.14% of 101
+⚠️  atom_supplier.cpp not covered or missing
+🧹 Cleaning .gcov files except project sources...

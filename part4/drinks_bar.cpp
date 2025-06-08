@@ -117,6 +117,12 @@ void handle_tcp_command(const string& command) {
         cerr << "Invalid command!" << endl;
         return;
     }
+    // detect extra arguments
+    string extra; 
+    if (iss >> extra) {
+        cerr << "Invalid command: too many arguments!" << endl;
+        return;
+    }
     add_atoms(atom_type, amount_string);
     print_inventory();
 }
