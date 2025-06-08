@@ -91,9 +91,16 @@ void handle_tcp_command(const string& command) {
         cerr << "Invalid command!" << endl;
         return;
     }
+    // detect extra arguments
+    string extra; 
+    if (iss >> extra) {
+        cerr << "Invalid command: too many arguments!" << endl;
+        return;
+    }
     add_atoms(atom_type, amount_string);
     print_inventory();
 }
+
 
 /**
  * @brief Handles a UDP DELIVER command and updates inventories accordingly.
@@ -170,7 +177,6 @@ string handle_udp_command(const string& command) {
     print_inventory();
     return "OK: Delivered " + to_string(count) + " " + molecule_name + " molecules";
 }
-
 /**
  * @brief Computes how many full drinks of a type can be prepared with available atoms.
  * @param drink_name The name of the drink (e.g., "VODKA").
@@ -215,7 +221,7 @@ unsigned long long compute_drink_count(const string& drink_name) {
  * @brief Main server loop. Listens on TCP and UDP ports and handles incoming commands.
  */
 int main(int argc, char* argv[]) {
-    
+    signal(SIGINT, handle_sigint);  // Catch Ctrl+C
     if (argc != 3) {
         cerr << "Usage: " << argv[0] << " <TCP_PORT> <UDP_PORT>" << endl;
         return 1;

@@ -1,0 +1,30 @@
+#!/usr/bin/expect -f
+set timeout 1
+set host [lindex $argv 0]
+set port [lindex $argv 1]
+
+# הפעלת הלקוח
+spawn ./atom_supplier $host $port
+
+# המתנה להודעת פתיחה
+expect {
+    "Connected to server" {}
+    timeout { puts "❌ Failed to connect to server"; exit 1 }
+}
+
+# פתיחת הקובץ
+set f [open "commands1.txt"]
+while {[gets $f line] >= 0} {
+    send -- "$line\r"
+    expect {
+        -re ".*" {}
+        timeout {}
+    }
+    sleep 0.1
+}
+close $f
+
+# סגירה מסודרת (אם צריך)
+sleep 1
+send -- "\004"  ;# שלח EOF כדי לסגור חיבור
+expect eof
