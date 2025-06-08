@@ -25,7 +25,7 @@ spawn ./atom_supplier -h $host -p $port
 # Wait for confirmation
 expect {
     "Connected to server" {}
-    timeout { puts "❌ Failed to connect to server"; exit 1 }
+    timeout { puts " Failed to connect to server"; exit 1 }
 }
 
 # Open command file

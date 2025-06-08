@@ -25,7 +25,7 @@ spawn ./molecule_requester -h $host -p $port
 # Wait for confirmation
 expect {
     "Connected to molecule server" {}
-    timeout { puts "❌ Failed to connect to molecule server"; exit 1 }
+    timeout { puts " Failed to connect to molecule server"; exit 1 }
 }
 
 # Open command file
