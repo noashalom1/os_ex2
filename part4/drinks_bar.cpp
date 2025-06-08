@@ -147,7 +147,13 @@ string handle_udp_command(const string& command) {
     string count_str = tokens.back();
     if (!all_of(count_str.begin(), count_str.end(), ::isdigit)) return "ERROR: Not a positive number";
 
-    unsigned long long count = stoull(count_str);
+    unsigned long long count;
+    try {
+    count = stoull(count_str);
+    } catch (const std::exception& e) {
+        return "ERROR: Invalid count - not a valid number";
+    }
+
     string molecule_name;
     for (size_t i = 0; i < tokens.size() - 1; ++i) {
         if (!molecule_name.empty()) molecule_name += " ";

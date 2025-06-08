@@ -1,0 +1,46 @@
+#!/usr/bin/expect -f
+set timeout 1
+
+# Parse flags: -h <host> -p <port>
+set host ""
+set port ""
+for {set i 0} {$i < $argc} {incr i} {
+    set arg [lindex $argv $i]
+    if {$arg == "-h"} {
+        incr i
+        set host [lindex $argv $i]
+    } elseif {$arg == "-p"} {
+        incr i
+        set port [lindex $argv $i]
+    }
+}
+if {$host eq "" || $port eq ""} {
+    puts "Usage: ./auto_molecule.exp -h <host> -p <port>"
+    exit 1
+}
+
+# Launch client
+spawn ./molecule_requester -h $host -p $port
+
+# Wait for confirmation
+expect {
+    "Connected to molecule server" {}
+    timeout { puts "❌ Failed to connect to molecule server"; exit 1 }
+}
+
+# Open command file
+set f [open "commands_molecular.txt"]
+while {[gets $f line] >= 0} {
+    send -- "$line\r"
+    expect {
+        -re "Server response:.*\n" {}
+        timeout {}
+    }
+    sleep 0.1
+}
+close $f
+
+# Graceful shutdown
+sleep 1
+send -- "\004"  ;# Send EOF
+expect eof
