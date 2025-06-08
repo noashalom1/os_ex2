@@ -1,0 +1,443 @@
+        -:    0:Source:atom_warehouse.cpp
+        -:    0:Graph:atom_warehouse.gcno
+        -:    0:Data:atom_warehouse.gcda
+        -:    0:Runs:3
+        -:    1:#include <iostream>
+        -:    2:#include <string>
+        -:    3:#include <map>
+        -:    4:#include <vector>
+        -:    5:#include <cstring>
+        -:    6:#include <unistd.h>
+        -:    7:#include <arpa/inet.h>
+        -:    8:#include <sys/socket.h>
+        -:    9:#include <sys/select.h>
+        -:   10:#include <sstream>
+        -:   11:#include <algorithm>
+        -:   12:#include <csignal>  // for the signals 
+        -:   13:#include <cstdlib>  // exit()
+        -:   14:#define MAX_VALUE 1000000000000000000
+        -:   15:
+        -:   16:using namespace std;
+        -:   17:
+        -:   18:/**
+        -:   19: * @brief Handles SIGINT (Ctrl+C) signal and exits cleanly.
+        -:   20: */
+function _Z13handle_siginti called 1 returned 0% blocks executed 100%
+        1:   21:void handle_sigint([[maybe_unused]] int sig) {
+        1:   22:    cout << "\n📤 Caught SIGINT (Ctrl+C). Exiting cleanly...\n";
+call    0 returned 100%
+        1:   23:    exit(0);  // Makes the .gcda 
+        -:   24:}
+        -:   25:
+        -:   26:map<string, unsigned long long> atom_inventory = {
+        -:   27:    {"CARBON", 0}, {"OXYGEN", 0}, {"HYDROGEN", 0}
+        -:   28:};
+        -:   29:
+        -:   30:/**
+        -:   31: * @brief Prints the current inventory of atoms.
+        -:   32: */
+function _Z15print_inventoryv called 12 returned 100% blocks executed 61%
+       12:   33:void print_inventory() {
+       24:   34:    cout << "CARBON: " << atom_inventory["CARBON"]
+call    0 returned 100%
+call    1 returned 100%
+branch  2 taken 100% (fallthrough)
+branch  3 taken 0% (throw)
+call    4 returned 100%
+branch  5 taken 100% (fallthrough)
+branch  6 taken 0% (throw)
+call    7 returned 100%
+branch  8 taken 100% (fallthrough)
+branch  9 taken 0% (throw)
+call   10 never executed
+       36:   35:         << ", OXYGEN: " << atom_inventory["OXYGEN"]
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+call    6 returned 100%
+branch  7 taken 100% (fallthrough)
+branch  8 taken 0% (throw)
+call    9 returned 100%
+branch 10 taken 100% (fallthrough)
+branch 11 taken 0% (throw)
+call   12 returned 100%
+call   13 never executed
+       36:   36:         << ", HYDROGEN: " << atom_inventory["HYDROGEN"] << endl;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+call    6 returned 100%
+branch  7 taken 100% (fallthrough)
+branch  8 taken 0% (throw)
+call    9 returned 100%
+branch 10 taken 100% (fallthrough)
+branch 11 taken 0% (throw)
+call   12 returned 100%
+branch 13 taken 100% (fallthrough)
+branch 14 taken 0% (throw)
+call   15 returned 100%
+call   16 returned 100%
+call   17 never executed
+       12:   37:}
+        -:   38:
+        -:   39:/**
+        -:   40: * @brief Adds atoms to the inventory if the input is valid.
+        -:   41: * 
+        -:   42: * @param atom_type The type of atom to add (e.g., "CARBON").
+        -:   43: * @param amount_string String representing the number of atoms to add.
+        -:   44: */
+function _Z9add_atomsRKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEES6_ called 12 returned 100% blocks executed 92%
+       12:   45:void add_atoms(const string& atom_type, const string& amount_string) {
+       12:   46:    if (!all_of(amount_string.begin(), amount_string.end(), ::isdigit)) {
+call    0 returned 100%
+call    1 returned 100%
+call    2 returned 100%
+branch  3 taken 25% (fallthrough)
+branch  4 taken 75%
+        3:   47:        cerr << "Invalid command: amount must be a positive number!" << endl;
+call    0 returned 100%
+call    1 returned 100%
+        3:   48:        return;
+        -:   49:    }
+        -:   50:
+        -:   51:    try {
+        9:   52:        unsigned long long amount = stoull(amount_string); 
+call    0 returned 100%
+branch  1 taken 78% (fallthrough)
+branch  2 taken 22% (throw)
+        7:   53:        if (atom_inventory[atom_type] + amount > MAX_VALUE) {
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+branch  3 taken 14% (fallthrough)
+branch  4 taken 86%
+        1:   54:            cerr << "Invalid command: not enough place for the atoms!" << endl;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+        1:   55:            return;
+        -:   56:        }
+        -:   57:
+        6:   58:        atom_inventory[atom_type] += amount;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+        2:   59:    } catch (const exception& e) {
+branch  0 taken 0% (fallthrough)
+branch  1 taken 100%
+call    2 returned 100%
+        2:   60:        cerr << "Error converting number" << endl;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+        2:   61:    }
+call    0 returned 100%
+call    1 never executed
+        -:   62:}
+        -:   63:
+        -:   64:/**
+        -:   65: * @brief Parses and executes a command from the client.
+        -:   66: * 
+        -:   67: * @param command The full command string received.
+        -:   68: */
+function _Z14handle_commandRKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE called 22 returned 100% blocks executed 83%
+       22:   69:void handle_command(const string& command) {
+       22:   70:    istringstream iss(command);
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+       22:   71:    string action, atom_type, amount_string;
+call    0 returned 100%
+call    1 returned 100%
+call    2 returned 100%
+        -:   72:  
+       22:   73:    iss >> action >> atom_type >> amount_string;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+call    6 returned 100%
+branch  7 taken 100% (fallthrough)
+branch  8 taken 0% (throw)
+        -:   74:
+       22:   75:    if (action != "ADD" || iss.fail()) {
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+branch  3 taken 82% (fallthrough)
+branch  4 taken 18%
+call    5 returned 100%
+branch  6 taken 100% (fallthrough)
+branch  7 taken 0% (throw)
+branch  8 taken 17% (fallthrough)
+branch  9 taken 83%
+branch 10 taken 32% (fallthrough)
+branch 11 taken 68%
+        7:   76:        cerr << "Invalid command!" << endl;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+        7:   77:        return;
+        -:   78:    }
+        -:   79:    
+        -:   80:    // detect extra arguments
+       15:   81:    string extra; 
+call    0 returned 100%
+       15:   82:    if (iss >> extra) {
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+branch  6 taken 7% (fallthrough)
+branch  7 taken 93%
+        1:   83:        cerr << "Invalid command: too many arguments!" << endl;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+        1:   84:        return;
+        -:   85:    }
+        -:   86:
+       14:   87:    transform(atom_type.begin(), atom_type.end(), atom_type.begin(), ::toupper);
+call    0 returned 100%
+call    1 returned 100%
+call    2 returned 100%
+call    3 returned 100%
+        -:   88:
+       14:   89:    if (atom_inventory.find(atom_type) != atom_inventory.end()) {
+call    0 returned 100%
+call    1 returned 100%
+branch  2 taken 100% (fallthrough)
+branch  3 taken 0% (throw)
+call    4 returned 100%
+branch  5 taken 86% (fallthrough)
+branch  6 taken 14%
+       12:   90:        add_atoms(atom_type, amount_string);
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+       12:   91:        print_inventory();
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+        -:   92:    } else {
+        2:   93:        cerr << "Unknown atom type!" << endl;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+        -:   94:    }
+       47:   95:}
+call    0 returned 100%
+branch  1 taken 93% (fallthrough)
+branch  2 taken 7%
+call    3 returned 100%
+branch  4 taken 64% (fallthrough)
+branch  5 taken 36%
+call    6 returned 100%
+branch  7 taken 64% (fallthrough)
+branch  8 taken 36%
+call    9 returned 100%
+branch 10 taken 64% (fallthrough)
+branch 11 taken 36%
+call   12 returned 100%
+branch 13 taken 64% (fallthrough)
+branch 14 taken 36%
+call   15 never executed
+call   16 never executed
+call   17 never executed
+call   18 never executed
+call   19 never executed
+        -:   96:
+        -:   97:/**
+        -:   98: * @brief Entry point of the TCP server program.
+        -:   99: * 
+        -:  100: * @param argc Number of arguments (expects 2).
+        -:  101: * @param argv Argument values (expects the port number).
+        -:  102: * @return int Exit status.
+        -:  103: */
+function main called 3 returned 67% blocks executed 79%
+        3:  104:int main(int argc, char* argv[]) {
+        3:  105:    signal(SIGINT, handle_sigint);  // Catch Ctrl+C
+call    0 returned 100%
+        -:  106:
+        3:  107:    if (argc != 2) {
+branch  0 taken 33% (fallthrough)
+branch  1 taken 67%
+        1:  108:        cerr << "Usage: " << argv[0] << " <PORT>" << endl;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+call    6 returned 100%
+branch  7 taken 100% (fallthrough)
+branch  8 taken 0% (throw)
+call    9 returned 100%
+branch 10 taken 100% (fallthrough)
+branch 11 taken 0% (throw)
+        1:  109:        return 1;
+        -:  110:    }
+        -:  111:
+        2:  112:    int port = atoi(argv[1]);
+        2:  113:    int server_fd = socket(AF_INET, SOCK_STREAM, 0);
+call    0 returned 100%
+        2:  114:    if (server_fd < 0) {
+branch  0 taken 0% (fallthrough)
+branch  1 taken 100%
+    #####:  115:        perror("socket failed");
+call    0 never executed
+branch  1 never executed (fallthrough)
+branch  2 never executed (throw)
+    #####:  116:        return 1;
+        -:  117:    }
+        -:  118:
+        2:  119:    sockaddr_in addr {};
+        2:  120:    addr.sin_family = AF_INET;
+        2:  121:    addr.sin_addr.s_addr = INADDR_ANY;
+        2:  122:    addr.sin_port = htons(port);
+        -:  123:
+        2:  124:    if (bind(server_fd, (sockaddr*)&addr, sizeof(addr)) < 0) {
+call    0 returned 100%
+branch  1 taken 50% (fallthrough)
+branch  2 taken 50%
+        1:  125:        perror("bind failed");
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+        1:  126:        return 1;
+        -:  127:    }
+        -:  128:
+        1:  129:    listen(server_fd, 5);
+call    0 returned 100%
+        -:  130:
+        -:  131:    fd_set master_set, read_fds;
+       17:  132:    FD_ZERO(&master_set);
+branch  0 taken 94%
+branch  1 taken 6% (fallthrough)
+        1:  133:    FD_SET(server_fd, &master_set);
+        1:  134:    int fdmax = server_fd;
+        -:  135:
+        1:  136:    vector<int> clients;
+call    0 returned 100%
+        -:  137:
+        1:  138:    cout << "Server is listening on port " << port << "...\n";
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+call    6 returned 100%
+branch  7 taken 100% (fallthrough)
+branch  8 taken 0% (throw)
+        -:  139:
+        -:  140:    while (true) {
+       27:  141:        read_fds = master_set;
+       27:  142:        if (select(fdmax+1, &read_fds, NULL, NULL, NULL) == -1) {
+call    0 returned 96%
+branch  1 taken 96% (fallthrough)
+branch  2 taken 0% (throw)
+branch  3 taken 0% (fallthrough)
+branch  4 taken 100%
+    #####:  143:            perror("select error");
+call    0 never executed
+branch  1 never executed (fallthrough)
+branch  2 never executed (throw)
+    #####:  144:            return 1;
+        -:  145:        }
+        -:  146:
+      156:  147:        for (int i = 0; i <= fdmax; ++i) {
+branch  0 taken 83%
+branch  1 taken 17% (fallthrough)
+      130:  148:            if (FD_ISSET(i, &read_fds)) {
+branch  0 taken 20% (fallthrough)
+branch  1 taken 80%
+       26:  149:                if (i == server_fd) {
+branch  0 taken 8% (fallthrough)
+branch  1 taken 92%
+        -:  150:                    // New client connection
+        2:  151:                    int newfd = accept(server_fd, NULL, NULL);
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+        2:  152:                    if (newfd != -1) {
+branch  0 taken 100% (fallthrough)
+branch  1 taken 0%
+        2:  153:                        FD_SET(newfd, &master_set);
+        2:  154:                        if (newfd > fdmax) fdmax = newfd;
+branch  0 taken 50% (fallthrough)
+branch  1 taken 50%
+        2:  155:                        clients.push_back(newfd);
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+        -:  156:                    }
+        -:  157:                } else {
+        -:  158:                    // Client sent data
+       24:  159:                    char buf[1024] = {0};
+       24:  160:                    int nbytes = recv(i, buf, sizeof(buf), 0);
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+       24:  161:                    if (nbytes <= 0) {
+branch  0 taken 8% (fallthrough)
+branch  1 taken 92%
+        2:  162:                        cout << "🔌 Client disconnected on socket " << i << endl;
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+call    6 returned 100%
+branch  7 taken 100% (fallthrough)
+branch  8 taken 0% (throw)
+        2:  163:                        close(i);
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+        2:  164:                        FD_CLR(i, &master_set);
+        -:  165:                    } else {
+       44:  166:                        handle_command(string(buf));
+call    0 returned 100%
+branch  1 taken 100% (fallthrough)
+branch  2 taken 0% (throw)
+call    3 returned 100%
+branch  4 taken 100% (fallthrough)
+branch  5 taken 0% (throw)
+call    6 returned 100%
+call    7 never executed
+        -:  167:                    }
+        -:  168:                }
+        -:  169:            }
+        -:  170:        }
+       26:  171:    }
+        -:  172:    return 0;
+    #####:  173:}
+call    0 never executed
+call    1 never executed
